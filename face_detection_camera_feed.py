@@ -32,7 +32,7 @@ while True:
     for (x, y, w, h) in faces:
         cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
         faceCrop = frame[x:x+w, y:y+h]
-        faceCrop = resize(faceCrop, (96, 96), anti_aliasing-True)
+        faceCrop = resize(faceCrop, (96, 96), anti_aliasing=True)
         latentFaceVector = openFace(faceCrop)
         result = classifier(latentFaceVector) #TODO uncomment when we get classifier.
         #TODO: Tag the frame with facerino
