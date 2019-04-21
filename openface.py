@@ -1,3 +1,5 @@
+import time
+
 import numpy
 import torch
 import torch.nn as nn
@@ -94,10 +96,13 @@ if __name__ == '__main__':
     openface = load_openface(device)
     print(openface)
 
+    start = time.time()
     I = numpy.reshape(numpy.array(range(96 * 96), dtype=numpy.float32) * 0.01, (1, 96, 96))
     I = numpy.concatenate([I, I, I], axis=0)
     I_ = torch.from_numpy(I).unsqueeze(0)
     I_ = Variable(I_.to(device), requires_grad=False)
+    end = time.time()
+    print("Ran one sample in {}s".format(end - start))
 
     result = openface(I_)
     print(result)
