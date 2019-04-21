@@ -1,10 +1,17 @@
 import cv2
 import sys
-
+from openface import load_openface
+import mlp
 faceCascade = cv2.CascadeClassifier("/Users/Eleanor/Desktop/CryptoBeat Videos/haarcascade_frontalface_default.xml")
 
 video_capture = cv2.VideoCapture(0)
-
+device = ""
+if torch.cuda.is_available():
+    device = "cuda:0"
+else:
+    device = "cpu"
+openFace = load_openface(device)
+classifier = mlp.load_mlp(device)
 while True:
 
     #ret is error code but we don't care about it
@@ -23,7 +30,11 @@ while True:
 
     for (x, y, w, h) in faces:
         cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-
+    faceCrop = frame[x:x+w, y:y+h]
+    #Reshape facecrop
+    latentFaceVector = openFace(faceCrop)
+    result = classifier(latentFaceVector) #TODO uncomment when we get classifier.
+    #TODO: Tag the frame with 
     cv2.imshow('Camera Feed', frame)
 
 # When everything is done, release the capture
