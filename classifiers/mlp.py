@@ -33,7 +33,7 @@ def load_mlp(device, numLayers):
         model = Simple2MLP(device)
     else:
         model = Simple3MLP(device)
-    path = "weights/mlp_weights.pth"
+    path = "weights/mlp_weights.pt"
     if device == torch.device("cpu"):
         model.load_state_dict(
             torch.load(path, map_location='cpu'))
