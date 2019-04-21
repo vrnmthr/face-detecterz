@@ -3,7 +3,7 @@ import numpy as np
 import torch
 class Simple3MLP(nn.Module):
     def __init__(self, inputSize=128, mlpHiddenSize1=300, mlpHiddenSize2=128, numClasses=100): #100 is a placeholder for  now
-        super(OccludedLatentNet, self).__init__()
+        super(Simple3MLP, self).__init__()
         self.mlp1 = nn.Linear(inputSize, mlpHiddenSize1)
         self.mlp2 = nn.Linear(mlpHiddenSize1, mlpHiddenSize2)
         self.mlp3 = nn.Linear(mlpHiddenSize2, numClasses)
@@ -17,7 +17,7 @@ class Simple3MLP(nn.Module):
         return out
 class Simple2MLP(nn.Module):
     def __init__(self, inputSize=128, mlpHiddenSize=300, numClasses=100):
-        super(OccludedLatentNet, self).__init__()
+        super(Simple2MLP, self).__init__()
         self.mlp1 = nn.Linear(inputSize, mlpHiddenSize) 
         self.mlp2 = nn.Linear(mlpHiddenSize, numClasses)
 
