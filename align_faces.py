@@ -12,7 +12,12 @@ FACE_SIZE = 256
 LEFT_EYE_LOC = (0.252418718401, 0.331052263829)
 RIGHT_EYE_LOC = (0.782865376271, 0.321305281656)
 NOSE_LOC = (0.520712933176, 0.634268222208)
-GOAL_DIST = 76.8
+GOAL_DIST = 135.799
+
+#this is bad code i know
+lefty = LEFT_EYE_LOC[0]*FACE_SIZE, LEFT_EYE_LOC[1]*FACE_SIZE
+righty = RIGHT_EYE_LOC[0]*FACE_SIZE, RIGHT_EYE_LOC[1]*FACE_SIZE
+nosey = NOSE_LOC[0]*FACE_SIZE, NOSE_LOC[1]*FACE_SIZE
 
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor("shape_predictor_5_face_landmarks.dat")
@@ -60,7 +65,7 @@ def align_and_extract_faces(img, test=False):
         arr = [l_outside, r_outside, nose]
 
         M = cv2.getAffineTransform(np.float32([l_outside, r_outside, nose]),
-                                   np.float32([LEFT_EYE_LOC, RIGHT_EYE_LOC, NOSE_LOC]))
+                                   np.float32([lefty, righty, nosey]))
 
         out = cv2.warpAffine(img, M, (FACE_SIZE, FACE_SIZE), flags=cv2.INTER_CUBIC)
 
