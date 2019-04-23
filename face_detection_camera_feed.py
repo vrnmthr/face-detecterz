@@ -2,6 +2,7 @@ import cv2
 import sys
 from openface import load_openface
 import mlp
+import align_faces
 from skimage.transform import resize
 import torch.nn
 import time
@@ -57,6 +58,7 @@ def main():
             cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
             faceCrop = frame[x:x+w, y:y+h]
             faceCrop = resize(faceCrop, (96, 96), anti_aliasing=True)
+
             latentFaceVector = openFace(faceCrop)
             result = classifier(latentFaceVector)
             softmax = nn.Softmax(result)

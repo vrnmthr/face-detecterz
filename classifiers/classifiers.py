@@ -41,7 +41,4 @@ def load_mlp(device, numLayers):
         model.load_state_dict(torch.load(path))
     # no need to backprop over openface
     return model
-def train(model, numIters):
-    loss = nn.CrossEntropyLoss
-    for i in range(len(numIters)):
-        prediction = model(data)
+def train(model)
