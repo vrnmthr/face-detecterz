@@ -44,10 +44,10 @@ def align_and_extract_faces(img, test=False):
 
         points = predictor(gray, f)
         points = face_utils.shape_to_np(points)
-        l_outside = points[0]
-        l_inside = points[1]
-        r_outside = points[2]
-        r_inside = points[3]
+        r_outside = points[0]
+        r_inside = points[1]
+        l_outside = points[2]
+        l_inside = points[3]
         nose = points[4]
         print(points)
 
