@@ -57,9 +57,10 @@ def align_and_extract_faces(img, test=False):
 
         dist = np.sqrt(dX ** 2 + dY ** 2)
         scale = GOAL_DIST / dist
-
-        M = cv2.getAffineTransform([l_outside, r_outside, nose], [LEFT_EYE_LOC, RIGHT_EYE_LOC, NOSE_LOC])
+        arr = [l_outside, r_outside, nose]
         
+        M = cv2.getAffineTransform(cv2.UMat([l_outside, r_outside, nose],), cv2.UMat([LEFT_EYE_LOC, RIGHT_EYE_LOC, NOSE_LOC], 3))
+
         out = cv2.warpAffine(img, M, (FACE_SIZE, FACE_SIZE), flags=cv2.INTER_CUBIC)
 
         if test:
