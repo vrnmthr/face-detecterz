@@ -37,7 +37,8 @@ def promptFaceTraining(seconds):
             faceCrop = resize(faceCrop, (96, 96), anti_aliasing=True)
             latentFaceVector = openFace(faceCrop)
             #TODO: ahhh save theFACE to disk somewhere!!
-            
+    #TODO: ahhhhhhHHHHHH TRAIN THE NETWORK ON NEW FACES!!
+def main():
     while True:
 
         #ret is error code but we don't care about it
@@ -61,7 +62,7 @@ def promptFaceTraining(seconds):
             softmax = nn.Softmax(result)
             classPredicted = np.argmax(softmax)
             confidence = softmax[classPredicted]
-            if confidence < 0.5 and : #TODO: Create heuristic for confidence and track frame history.
+            if confidence < 0.5: #TODO: Create heuristic for confidence and track frame history.
                 promptFaceTraining()
             #TODO: Tag the frame with facerino
         cv2.imshow('Camera Feed', frame)
@@ -69,3 +70,4 @@ def promptFaceTraining(seconds):
     # When everything is done, release the capture
     video_capture.release()
     cv2.destroyAllWindows()
+if __name__ == "__main__": main()
