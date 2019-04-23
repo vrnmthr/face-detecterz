@@ -12,10 +12,10 @@ import os
 import numpy as np
 import torch
 from skimage.io import imread
-from skimage.transform import resize
 from tqdm import tqdm
 
 import openface
+from align_faces import align_and_extract_faces
 
 # important information
 dabs = 8
@@ -27,8 +27,11 @@ def crop_n_roll(f):
     if len(img.shape) != 3:
         # if image is black and white, throw it OUT
         return None
-    resized = resize(img, output_shape=(96, 96), anti_aliasing=True)
-    return resized
+    aligned = align_and_extract_faces(img)
+    if len(aligned) != 1:
+        # if multiple faces in images for embedding, throw them out
+        return None
+    return aligned[0]
 
 
 def generate_CASIA_embeddings(model, data_folder, out_dir):
