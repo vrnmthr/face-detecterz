@@ -35,6 +35,15 @@ class FaceDataset(td.Dataset):
         label = self.labels[idx]
         return sample, label
 
+    def to_numpy(self):
+        """
+        Returns a numpy array of data, labels
+        """
+        return self.embeddings, self.labels
+
+    def to_dataloader(self, batch_size=1):
+        return td.DataLoader(self, batch_size=batch_size, shuffle=True)
+
 
 def get_dev_test_train(dataset):
     """
