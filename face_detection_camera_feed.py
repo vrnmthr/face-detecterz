@@ -6,7 +6,7 @@ from skimage.transform import resize
 import torch.nn
 from align_faces.py import align_and_extract_faces
 import time
-faceCascade = cv2.CascadeClassifier("/Users/Eleanor/Desktop/CryptoBeat Videos/haarcascade_frontalface_default.xml")
+faceCascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
 video_capture = cv2.VideoCapture(0)
 device = ""
 if torch.cuda.is_available():
