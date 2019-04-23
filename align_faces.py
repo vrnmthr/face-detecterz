@@ -20,8 +20,6 @@ gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 faces = detector(gray, 0)
 
 for f in faces:
-    print("doing a face")
-    print("total faces: " + str(len(faces)))
     (x, y, w, h) = face_utils.rect_to_bb(f)
     face_original = img[y:y+h, x:x+w]
     cv2.imshow("original face", face_original)
@@ -32,7 +30,6 @@ for f in faces:
     l2 = points[1]
     r1 = points[2]
     r2 = points[3]
-    print(points)
 
     left_eye_center = [(l1[0]+l2[0])/2, (l1[1]+l2[1])/2]
     right_eye_center = [(r1[0]+r2[0])/2, (r1[1]+r2[1])/2]
@@ -44,8 +41,6 @@ for f in faces:
     eyes_center = ((left_eye_center[0]+right_eye_center[0])//2,
         (left_eye_center[1]+right_eye_center[1])//2)
 
-    print(eyes_center)
-
     dist = np.sqrt(dX**2 + dY**2)
     scale = GOAL_DIST/dist
 
@@ -55,11 +50,8 @@ for f in faces:
     M[0, 2] += (tX - eyes_center[0])
     M[1, 2] += (tY - eyes_center[1])
 
-    print(M)
-
     out = cv2.warpAffine(img, M, (FACE_SIZE, FACE_SIZE), flags=cv2.INTER_CUBIC)
-    print(out)
-    cv2.imshow("output???", out)
+    cv2.imshow("output", out)
     cv2.waitKey(0)
 
 
