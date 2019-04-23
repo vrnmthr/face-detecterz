@@ -46,9 +46,10 @@ def align_and_extract_faces(img, test=False):
         points = face_utils.shape_to_np(points)
         l_outside = points[0]
         l_inside = points[1]
-        r_inside = points[2]
-        r_outside = points[3]
+        r_outside = points[2]
+        r_inside = points[3]
         nose = points[4]
+        print(points)
 
         left_eye_center = [(l_outside[0] + l_inside[0]) / 2, (l_outside[1] + l_inside[1]) / 2]
         right_eye_center = [(r_inside[0] + r_outside[0]) / 2, (r_inside[1] + r_outside[1]) / 2]
