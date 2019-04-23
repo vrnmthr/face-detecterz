@@ -7,17 +7,13 @@ from imutils import face_utils
 
 # below is code to align one image
 
-FACE_SIZE = 256
-# outside corners
-LEFT_EYE_LOC = (0.252418718401, 0.331052263829)
-RIGHT_EYE_LOC = (0.782865376271, 0.321305281656)
-NOSE_LOC = (0.520712933176, 0.634268222208)
-GOAL_DIST = 135.799
+FACE_SIZE = 96
 
-#this is bad code i know
-lefty = LEFT_EYE_LOC[0]*FACE_SIZE, LEFT_EYE_LOC[1]*FACE_SIZE
-righty = RIGHT_EYE_LOC[0]*FACE_SIZE, RIGHT_EYE_LOC[1]*FACE_SIZE
-nosey = NOSE_LOC[0]*FACE_SIZE, NOSE_LOC[1]*FACE_SIZE
+TEMPLATE = np.load("openface_template.npy")
+TPL_MIN, TPL_MAX = np.min(TEMPLATE, axis=0), np.max(TEMPLATE, axis=0)
+MINMAX_TEMPLATE = (TEMPLATE - TPL_MIN) / (TPL_MAX - TPL_MIN) * FACE_SIZE
+# left eye inside, right eye inside, nose
+LANDMARKS = [39, 42, 33]
 
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor("shape_predictor_5_face_landmarks.dat")
@@ -35,40 +31,21 @@ def align_and_extract_faces(img, test=False):
     result = []
 
     for f in faces:
-        (x, y, w, h) = face_utils.rect_to_bb(f)
-        face_original = img[y:y + h, x:x + w]
 
         if test:
+            (x, y, w, h) = face_utils.rect_to_bb(f)
+            face_original = img[y:y + h, x:x + w]
             cv2.imshow("original", face_original)
             cv2.waitKey(0)
 
         points = predictor(gray, f)
         points = face_utils.shape_to_np(points)
-        r_outside = points[0]
-        r_inside = points[1]
-        l_outside = points[2]
-        l_inside = points[3]
-        nose = points[4]
-        print(points)
+        r_outside, r_inside, l_outside, l_inside, nose = points
 
-        left_eye_center = [(l_outside[0] + l_inside[0]) / 2, (l_outside[1] + l_inside[1]) / 2]
-        right_eye_center = [(r_inside[0] + r_outside[0]) / 2, (r_inside[1] + r_outside[1]) / 2]
+        M = cv2.getAffineTransform(np.float32([l_inside, r_inside, nose]),
+                                   np.float32(MINMAX_TEMPLATE[LANDMARKS]))
 
-        dY = right_eye_center[1] - left_eye_center[1]
-        dX = right_eye_center[0] - left_eye_center[0]
-        angle_between_eyes = np.degrees(np.arctan2(dY, dX)) - 180
-
-        eyes_center = ((left_eye_center[0] + right_eye_center[0]) // 2,
-                       (left_eye_center[1] + right_eye_center[1]) // 2)
-
-        dist = np.sqrt(dX ** 2 + dY ** 2)
-        scale = GOAL_DIST / dist
-        arr = [l_outside, r_outside, nose]
-
-        M = cv2.getAffineTransform(np.float32([l_outside, r_outside, nose]),
-                                   np.float32([lefty, righty, nosey]))
-
-        out = cv2.warpAffine(img, M, (FACE_SIZE, FACE_SIZE), flags=cv2.INTER_CUBIC)
+        out = cv2.warpAffine(img, M, (FACE_SIZE, FACE_SIZE))
 
         if test:
             cv2.imshow("output", out)
@@ -76,7 +53,7 @@ def align_and_extract_faces(img, test=False):
 
         result.append(out)
 
-    return np.asarray(result)
+    return result
 
 
 if __name__ == '__main__':
