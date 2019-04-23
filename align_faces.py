@@ -8,7 +8,7 @@ from imutils import face_utils
 # below is code to align one image
 
 FACE_SIZE = 256
-#outside corners
+# outside corners
 LEFT_EYE_LOC = (0.252418718401, 0.331052263829)
 RIGHT_EYE_LOC = (0.782865376271, 0.321305281656)
 NOSE_LOC = (0.520712933176, 0.634268222208)
@@ -58,8 +58,9 @@ def align_and_extract_faces(img, test=False):
         dist = np.sqrt(dX ** 2 + dY ** 2)
         scale = GOAL_DIST / dist
         arr = [l_outside, r_outside, nose]
-        
-        M = cv2.getAffineTransform(cv2.UMat([l_outside, r_outside, nose],), cv2.UMat([LEFT_EYE_LOC, RIGHT_EYE_LOC, NOSE_LOC], 3))
+
+        M = cv2.getAffineTransform(np.float32([l_outside, r_outside, nose]),
+                                   np.float32([LEFT_EYE_LOC, RIGHT_EYE_LOC, NOSE_LOC]))
 
         out = cv2.warpAffine(img, M, (FACE_SIZE, FACE_SIZE), flags=cv2.INTER_CUBIC)
 
