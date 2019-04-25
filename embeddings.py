@@ -8,18 +8,23 @@
 import argparse
 import glob
 import os
+import sys
+import time
 
 import numpy as np
-import torch
 from skimage.io import imread
 from tqdm import tqdm
 
-import openface
 from align_faces import align_and_extract_faces
+
+sys.path.append(os.path.expanduser("~/Source/openface"))
+import openface
 
 # important information
 dabs = 8
 whips = 6
+
+model = openface.TorchNeuralNet()
 
 
 def crop_n_roll(f):
@@ -34,31 +39,34 @@ def crop_n_roll(f):
     return aligned[0]
 
 
-def generate_CASIA_embeddings(model, data_folder, out_dir):
+def generate_embeddings_new(data_folder, n=None):
     people = glob.glob(os.path.join(data_folder, "*"))
+    n = len(people) if n is None else n
+    people = people[:n]
+
+    start = time.time()
+    generated = 0
     for person in tqdm(people):
         id = os.path.basename(person)
         files = os.path.join(person, "*.jpg")
-        imgs = []
-        for img_path in glob.glob(files):
-            img = crop_n_roll(img_path)
-            if img is not None:
-                imgs.append(img)
-        input = np.asarray(imgs)
-        input = np.moveaxis(input, 3, 1)
-        input = torch.from_numpy(input).float()
-        embeddings = model(input)
-        embeddings = embeddings.detach().numpy()
-        np.save(os.path.join(out_dir, "{}.npy".format(id)), embeddings)
+
+        if not os.path.exists("embeddings/test/{}".format(id)):
+            os.mkdir("embeddings/test/{}".format(id))
+
+            for img_path in glob.glob(files):
+                img_id = os.path.basename(img_path).replace(".jpg", "")
+                img = crop_n_roll(img_path)
+                if img is not None:
+                    generated += 1
+                    embedding = model.forward(img)
+                    np.save("embeddings/test/{}/{}.npy".format(id, img_id), embedding)
+
+    end = time.time()
+    print("Generated {} embeddings with an average time of {}s".format(generated, (end - start) / generated))
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--gpu", action="store_true", help="run with this flag to run on a GPU")
     parser.add_argument("data_folder", help="path to directory to generate embeddings from")
-    parser.add_argument("out_dir", help="path to directory to save embeddings to")
-
     args = vars(parser.parse_args())
-    device = torch.device("cuda") if args["gpu"] else torch.device("cpu")
-    model = openface.load_openface(device)
-    generate_CASIA_embeddings(model, args["data_folder"], args["out_dir"])
+    generate_embeddings_new(args["data_folder"], n=10)
