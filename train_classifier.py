@@ -35,6 +35,29 @@ class FaceDataset(td.Dataset):
         label = self.labels[idx]
         return sample, label
 
+    def to_numpy(self):
+        """
+        Returns a numpy array of data, labels
+        """
+        return self.embeddings, self.labels
+
+    def to_dataloader(self, batch_size=1):
+        return td.DataLoader(self, batch_size=batch_size, shuffle=True)
+
+
+def get_dev_test_train(dataset):
+    """
+    :param dataset: a Torch dataset
+    :return: dev, test, train dataloaders
+    """
+    n = len(dataset)
+    dev_ratio, test_ratio, train_ratio = 0.8, 0.1, 0.1
+    dev_length, test_length, train_length = int(n * dev_ratio), int(n * test_ratio), int(n * train_ratio)
+    # make sure the ratios sum properly
+    train_length += n - dev_length - test_length - train_length
+    dev, test, train = td.random_split(dataset, [dev_length, test_length, train_length])
+    return dev, test, train
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

@@ -5,8 +5,9 @@ import mlp
 import align_faces
 from skimage.transform import resize
 import torch.nn
+from align_faces.py import align_and_extract_faces
 import time
-faceCascade = cv2.CascadeClassifier("/Users/Eleanor/Desktop/CryptoBeat Videos/haarcascade_frontalface_default.xml")
+faceCascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
 video_capture = cv2.VideoCapture(0)
 device = ""
 if torch.cuda.is_available():
@@ -15,6 +16,8 @@ else:
     device = "cpu"
 openFace = load_openface(device)
 classifier = mlp.load_mlp(device, 3)
+
+CONF_THRESHOLD = .5
 
 def promptFaceTraining(seconds):
     print("Capture starting in 5 seconds. Bring your face 2 feet from camera and slowly rotate!")
@@ -35,13 +38,17 @@ def promptFaceTraining(seconds):
         for (x, y, w, h) in faces:
             cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
             faceCrop = frame[x:x+w, y:y+h]
-            faceCrop = resize(faceCrop, (96, 96), anti_aliasing=True)
+            faceCrop = align_and_extract_faces(faceCrop)
             latentFaceVector = openFace(faceCrop)
+            print("Not yet implemented")
             #TODO: ahhh save theFACE to disk somewhere!!
     #TODO: ahhhhhhHHHHHH TRAIN THE NETWORK ON NEW FACES!!
 def main():
+    # to store previous confidences to determine whether a face exists
+    CONF_TO_STORE = 30
+    prev_conf = np.zeros(CONF_TO_STORE)
+    conf_idx = 0
     while True:
-
         #ret is error code but we don't care about it
         ret, frame = video_capture.read()
 
@@ -57,16 +64,20 @@ def main():
         for (x, y, w, h) in faces:
             cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
             faceCrop = frame[x:x+w, y:y+h]
-            faceCrop = resize(faceCrop, (96, 96), anti_aliasing=True)
-
+            faceCrop = align_and_extract_faces(faceCrop)
             latentFaceVector = openFace(faceCrop)
             result = classifier(latentFaceVector)
             softmax = nn.Softmax(result)
             classPredicted = np.argmax(softmax)
             confidence = softmax[classPredicted]
-            if confidence < 0.5: #TODO: Create heuristic for confidence and track frame history.
+            prev_conf[conf_idx] = confidence
+            conf_idx += 1
+            if np.sum(prev_conf)/CONF_TO_STORE < CONF_THRESHOLD: #TODO: Create heuristic for confidence and track frame history.
+                print("We don't recognize you!")
                 promptFaceTraining()
-            #TODO: Tag the frame with facerino
+            #TODO: Tag the frame with facerino -- get the name somehow
+            else:
+                cv2.putText(frame, str(classPredicted), (x, y), cv2.FONT_HERSHEY_PLAIN, 1.5, (0, 255, 0), 2)
         cv2.imshow('Camera Feed', frame)
 
     # When everything is done, release the capture

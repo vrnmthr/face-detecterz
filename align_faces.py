@@ -7,23 +7,24 @@ from imutils import face_utils
 
 # below is code to align one image
 
-FACE_SIZE = 96
-
-TEMPLATE = np.load("openface_template.npy")
-TPL_MIN, TPL_MAX = np.min(TEMPLATE, axis=0), np.max(TEMPLATE, axis=0)
-MINMAX_TEMPLATE = (TEMPLATE - TPL_MIN) / (TPL_MAX - TPL_MIN) * FACE_SIZE
-# left eye inside, right eye inside, nose
-LANDMARKS = [39, 42, 33]
-
-detector = dlib.get_frontal_face_detector()
-predictor = dlib.shape_predictor("shape_predictor_5_face_landmarks.dat")
-
 
 def align_and_extract_faces(img, test=False):
     """
     :param img: standard image ndarray
     :return: array of extracted, aligned faces
     """
+    FACE_SIZE = 96
+
+    TEMPLATE = np.load("openface_template.npy")
+    TPL_MIN, TPL_MAX = np.min(TEMPLATE, axis=0), np.max(TEMPLATE, axis=0)
+    MINMAX_TEMPLATE = (TEMPLATE - TPL_MIN) / (TPL_MAX - TPL_MIN) * FACE_SIZE
+    # left eye inside, right eye inside, nose
+    LANDMARKS = [39, 42, 33]
+
+    detector = dlib.get_frontal_face_detector()
+    predictor = dlib.shape_predictor("shape_predictor_5_face_landmarks.dat")
+
+
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     # gets coordinates of all the faces in the image
     faces = detector(gray, 0)
