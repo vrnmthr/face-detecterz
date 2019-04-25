@@ -1,33 +1,49 @@
-import numpy as np
 import glob
+import os
+
+import numpy as np
+import plotly
 from sklearn.decomposition import PCA
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 data_map = {}
-count = 0
-for np_name in glob.glob('/Users/Eleanor/Desktop/aligned_embeddings/*.npy'):
-    data_map[count] = np.load(np_name)
-    count += 1
 
-data = np.concatenate(list(data_map.values()))
+embeddings = []
+labels = []
 
+ix = 0
+for face in glob.glob("embeddings/test/*"):
+    paths = glob.glob(os.path.join(face, "*.npy"))
+    for p in paths:
+        e = np.load(p)
+        embeddings.append(e)
+        labels.append(ix)
+    ix += 1
+
+embeddings = np.asarray(embeddings)
 pca = PCA(n_components=3)
+reduced = pca.fit_transform(embeddings)
+print(np.cumsum(pca.explained_variance_ratio_))
 
-data_transform = pca.fit_transform(data)
+plot = plotly.graph_objs.Scatter(
+    x=reduced[:, 0],
+    y=reduced[:, 1],
+    mode="markers",
+    marker=dict(
+        color=labels,  # set color equal to a variable
+        colorscale='Rainbow',
+    )
+)
 
-print(data_transform)
-print(data_transform.shape)
-print(np.sum(pca.explained_variance_ratio_))
+threeplot = plotly.graph_objs.Scatter3d(
+    x=reduced[:, 0],
+    y=reduced[:, 1],
+    z=reduced[:, 2],
+    mode="markers",
+    marker=dict(
+        color=labels,  # set color equal to a variable
+        colorscale='Rainbow',
+    )
+)
 
-
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-
-x = data_transform[:, 0]
-y = data_transform[:, 1]
-z = data_transform[:, 2]
-
-ax.scatter(xs=x, ys=y, zs=z)
-plt.show()
-print("showed")
+plotly.offline.plot([plot], filename="embeddings.html")
+plotly.offline.plot([threeplot], filename="embeddings3d.html")
