@@ -1,6 +1,7 @@
 import time
 
-import numpy
+import cv2
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -81,14 +82,34 @@ class OpenFace(nn.Module):
 def load_openface(device):
     model = OpenFace(device)
     path = "weights/openface_20180119.pth"
-    if device == torch.device("cpu"):
-        model.load_state_dict(
-            torch.load(path, map_location='cpu'))
-    else:
-        model.load_state_dict(torch.load(path))
+    model.load_state_dict(torch.load(path, map_location=device))
     # no need to backprop over openface
     model.eval()
     return model
+
+
+def preprocess_single(img):
+    """
+    Preprocessing method for a single face for transformation.
+    """
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    img = np.transpose(img, (2, 0, 1))
+    img = img.astype(np.float32) / 255.0
+    tensor = torch.from_numpy(img).float()
+    return tensor
+
+
+def preprocess_batch(imgs):
+    """
+    Preprocess a batch of images for input into openface
+    :param imgs:
+    :return:
+    """
+    imgs = np.flip(imgs, axis=3)
+    imgs = np.moveaxis(imgs, 3, 1)
+    imgs = imgs.astype(np.float32) / 255.0
+    tensor = torch.from_numpy(imgs).float()
+    return tensor
 
 
 if __name__ == '__main__':
@@ -97,8 +118,8 @@ if __name__ == '__main__':
     print(openface)
 
     start = time.time()
-    I = numpy.reshape(numpy.array(range(96 * 96), dtype=numpy.float32) * 0.01, (1, 96, 96))
-    I = numpy.concatenate([I, I, I], axis=0)
+    I = np.reshape(np.array(range(96 * 96), dtype=np.float32) * 0.01, (1, 96, 96))
+    I = np.concatenate([I, I, I], axis=0)
     I_ = torch.from_numpy(I).unsqueeze(0)
     I_ = Variable(I_.to(device), requires_grad=False)
     end = time.time()

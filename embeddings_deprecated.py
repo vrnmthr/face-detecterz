@@ -69,4 +69,4 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("data_folder", help="path to directory to generate embeddings from")
     args = vars(parser.parse_args())
-    generate_embeddings_new(args["data_folder"], n=10)
+    generate_embeddings_new(args["data_folder"], n=1000)
