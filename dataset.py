@@ -18,6 +18,7 @@ class FaceDataset:
         n = len(self.paths) if n is None else n
         self.data = [[], [], []]
         self.labels = [[], [], []]
+        # TODO: ideally we would shuffle this so that a different n points gets loaded every time
         for ix, path in tqdm(enumerate(self.paths[:n]), total=n):
             e = np.load(path)
             l = len(e)
@@ -29,7 +30,7 @@ class FaceDataset:
             self.labels[1].append(np.full(len(e[int(0.8 * l):int(0.9 * l)]), ix))
             self.labels[2].append(np.full(len(e[int(0.9 * l):]), ix))
 
-        # yes this is shitty but idk why it wasn't working otherwise
+        # vvvv shitass code but it wasn't working otherwise idk??
         self.data = np.concatenate(self.data[0]), np.concatenate(self.data[1]), np.concatenate(self.data[2])
         self.labels = np.concatenate(self.labels[0]), np.concatenate(self.labels[1]), np.concatenate(self.labels[2])
 

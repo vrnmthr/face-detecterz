@@ -25,6 +25,7 @@ def test(clf, data, labels):
     """
     :return: accuracy percentage, evaluation time
     """
+    # TODO: this right now only evaluates over a single test/train split. Ideally we would do cross-validation?
     start = time.time()
     pred = clf.predict(data)
     duration = time.time() - start
@@ -36,6 +37,7 @@ def make_graphs(dir, clfs):
     """
     Plots accuracy vs. number of classes, training time vs. number of classes and eval time vs. number of classes
     """
+    # TODO: we actually want time taken to "add" a class instead of "training time"; these two are not necessarily equal
     num_classes = [2, 10, 50, 100]
     result_shape = (len(clfs), len(num_classes))
     metrics = {
@@ -66,6 +68,8 @@ def make_graphs(dir, clfs):
 
 if __name__ == '__main__':
     path = "embeddings/test3"
+    # TODO: all sorts of grid searches need to be done over these to actually determine what the right hyperparams are
+    # I've just sorta randomly initialized them for now with what I think would work best
     clfs = {
         "svm": svm.SVC(gamma="scale", kernel="rbf"),
         "knn": KNeighborsClassifier(weights="distance"),
