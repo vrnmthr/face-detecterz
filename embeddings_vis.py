@@ -1,5 +1,4 @@
 import glob
-import os
 
 import numpy as np
 import plotly
@@ -23,7 +22,8 @@ labels = []
 
 
 ix = 0
-for face in glob.glob("embeddings/test3/*.npy"):
+n = 10
+for face in glob.glob("embeddings/test3/*.npy")[:n]:
     samples = np.load(face)
     embeddings.append(samples)
     labels.append(np.full(len(samples), ix))
