@@ -1,11 +1,7 @@
 import cv2
 import mlp
-import align_faces
-from skimage.transform import resize
 import torch.nn
 from align_faces.py import align_and_extract_faces
-from openface import load_openface
-from sklearn import svm
 from openface import load_openface, preprocess_single
 
 faceCascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
@@ -16,9 +12,10 @@ if torch.cuda.is_available():
 else:
     device = "cpu"
 openFace = load_openface(device)
-classifier = svm.
+classifier = mlp.load_mlp(device, 3)
 
 CONF_THRESHOLD = .5
+
 
 def promptFaceTraining(seconds):
     print("Capture starting in 5 seconds. Bring your face 2 feet from camera and slowly rotate!")
@@ -71,13 +68,16 @@ def main():
             faceCrop = frame[x:x + w, y:y + h]
             faceCrop = align_and_extract_faces(faceCrop)
             latentFaceVector = openFace(faceCrop)
+            result = classifier(latentFaceVector)
+            softmax = nn.Softmax(result)
             classPredicted = np.argmax(softmax)
             confidence = softmax[classPredicted]
             prev_conf[conf_idx] = confidence
             conf_idx += 1
-            if np.sum(prev_conf) / CONF_TO_STORE < CONF_THRESHOLD:  # TODO: Create heuristic for confidence and track frame history.
+            if np.sum(
+                    prev_conf) / CONF_TO_STORE < CONF_THRESHOLD:  # TODO: Create heuristic for confidence and track frame history.
                 print("We don't recognize you!")
-                #promptFaceTraining()
+                promptFaceTraining()
             # TODO: Tag the frame with facerino -- get the name somehow
             else:
                 cv2.putText(frame, str(classPredicted), (x, y), cv2.FONT_HERSHEY_PLAIN, 1.5, (0, 255, 0), 2)
