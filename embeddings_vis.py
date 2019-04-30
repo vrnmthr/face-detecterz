@@ -3,6 +3,7 @@ import glob
 import numpy as np
 import plotly
 from sklearn.decomposition import PCA
+from hypersphere import to_spherical, to_rectangular
 
 data_map = {}
 
@@ -29,6 +30,7 @@ for face in glob.glob("embeddings/test3/*.npy")[:n]:
     labels.append(np.full(len(samples), ix))
     ix += 1
 embeddings = np.concatenate(embeddings)
+embeddings = to_spherical(embeddings)
 labels = np.concatenate(labels)
 
 pca = PCA(n_components=3)
