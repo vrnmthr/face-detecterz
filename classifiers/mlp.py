@@ -15,6 +15,9 @@ class Simple3MLP(nn.Module):
         out = torch.relu(out)
         out = self.mlp3(out)
         return out
+    def fit(self, data, labels):
+    def predict(self, data):
+    
 class Simple2MLP(nn.Module):
     def __init__(self, inputSize=128, mlpHiddenSize=300, numClasses=100):
         super(Simple2MLP, self).__init__()
