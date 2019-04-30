@@ -18,13 +18,21 @@ class FaceDataset:
         n = len(self.paths) if n is None else n
         self.data = [[], [], []]
         self.labels = [[], [], []]
+
+        self.paths = self.paths[:n]
+        np.random.shuffle(self.paths)
+
         # TODO: ideally we would shuffle this so that a different n points gets loaded every time
-        for ix, path in tqdm(enumerate(self.paths[:n]), total=n):
+        for ix, path in enumerate(self.paths):
             e = np.load(path)
             l = len(e)
-            self.data[0].append(e[:int(0.8 * l)])
-            self.data[1].append(e[int(0.8 * l):int(0.9 * l)])
-            self.data[2].append(e[int(0.9 * l):])
+
+            # get random indices
+            ixs = np.arange(l)
+            np.random.shuffle(ixs)
+            self.data[0].append(e[ixs[:int(0.8 * l)]])
+            self.data[1].append(e[ixs[int(0.8 * l):int(0.9 * l)]])
+            self.data[2].append(e[ixs[int(0.9 * l):]])
 
             self.labels[0].append(np.full(len(e[:int(0.8 * l)]), ix))
             self.labels[1].append(np.full(len(e[int(0.8 * l):int(0.9 * l)]), ix))

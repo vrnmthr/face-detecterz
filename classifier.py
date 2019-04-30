@@ -6,9 +6,10 @@ from sklearn import svm
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.gaussian_process import GaussianProcessClassifier
 from sklearn.neighbors import RadiusNeighborsClassifier, KNeighborsClassifier, NearestCentroid
-
+from sklearn.preprocessing import scale
 from dataset import FaceDataset
 from tqdm import tqdm
+from hypersphere import to_spherical
 
 
 def train(clf, data, labels):
@@ -16,6 +17,7 @@ def train(clf, data, labels):
     :return: trained classifier, training time
     """
     start = time.time()
+    # data = to_spherical(data)
     clf.fit(data, labels)
     duration = time.time() - start
     return clf, duration
@@ -27,6 +29,7 @@ def test(clf, data, labels):
     """
     # TODO: this right now only evaluates over a single test/train split. Ideally we would do cross-validation?
     start = time.time()
+    # data = to_spherical(data)
     pred = clf.predict(data)
     duration = time.time() - start
     correct = pred == labels
@@ -71,11 +74,11 @@ if __name__ == '__main__':
     # TODO: all sorts of grid searches need to be done over these to actually determine what the right hyperparams are
     # I've just sorta randomly initialized them for now with what I think would work best
     clfs = {
-        "svm": svm.SVC(gamma="scale", kernel="rbf"),
+        "linear svm": svm.SVC(kernel="linear", gamma="scale", C=1.6),
         "knn": KNeighborsClassifier(weights="distance"),
         # "gaussian process": GaussianProcessClassifier(),
-        "random forest": RandomForestClassifier(),
-        "radius neighbors": RadiusNeighborsClassifier(weights="distance"),
+        "random forest": RandomForestClassifier(n_estimators=100),
+        # "radius neighbors": RadiusNeighborsClassifier(weights="distance"),
         "nearest centroid": NearestCentroid(),
         # "gradient boost": GradientBoostingClassifier()
     }
