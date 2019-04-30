@@ -1,5 +1,4 @@
 import glob
-import os
 
 import numpy as np
 import plotly
@@ -10,16 +9,28 @@ data_map = {}
 embeddings = []
 labels = []
 
-ix = 0
-for face in glob.glob("embeddings/test/*"):
-    paths = glob.glob(os.path.join(face, "*.npy"))
-    for p in paths:
-        e = np.load(p)
-        embeddings.append(e)
-        labels.append(ix)
-    ix += 1
+# loads embeddings out of embeddings/test
+# ix = 0
+# for face in glob.glob("embeddings/test/*"):
+#     paths = glob.glob(os.path.join(face, "*.npy"))
+#     for p in paths:
+#         e = np.load(p)
+#         embeddings.append(e)
+#         labels.append(ix)
+#     ix += 1
+# embeddings = np.asarray(embeddings)
 
-embeddings = np.asarray(embeddings)
+
+ix = 0
+n = 10
+for face in glob.glob("embeddings/test3/*.npy")[:n]:
+    samples = np.load(face)
+    embeddings.append(samples)
+    labels.append(np.full(len(samples), ix))
+    ix += 1
+embeddings = np.concatenate(embeddings)
+labels = np.concatenate(labels)
+
 pca = PCA(n_components=3)
 reduced = pca.fit_transform(embeddings)
 print(np.cumsum(pca.explained_variance_ratio_))
