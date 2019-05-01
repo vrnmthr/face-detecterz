@@ -94,15 +94,10 @@ def main():
             latentFaceVector = latentFaceVector.detach().numpy()
             pred = clf.predict([latentFaceVector])
             print(pred)
-            # softmax = nn.Softmax(result)
-            # classPredicted = np.argmax(softmax)
-            # confidence = softmax[classPredicted]
-            # prev_conf[conf_idx] = confidence
             conf_idx += 1
-            if np.sum(
-                    prev_conf) / CONF_TO_STORE < CONF_THRESHOLD:  # TODO: Create heuristic for confidence and track frame history.
+            if np.sum(prev_conf) / CONF_TO_STORE < CONF_THRESHOLD:  # TODO: Create heuristic for confidence and track frame history.
                 print("We don't recognize you!")
-                promptFaceTraining(5)
+                capture_faces()
             # TODO: Tag the frame with facerino -- get the name somehow
             else:
                 cv2.putText(frame, str(classPredicted), (x, y), cv2.FONT_HERSHEY_PLAIN, 1.5, (0, 255, 0), 2)
