@@ -81,7 +81,7 @@ class OpenFace(nn.Module):
 
 def load_openface(device):
     model = OpenFace(device)
-    path = "weights/openface_20180119.pth"
+    path = "data/openface_20180119.pth"
     model.load_state_dict(torch.load(path, map_location=device))
     # no need to backprop over openface
     model.eval()

@@ -3,7 +3,6 @@ import glob
 import os
 
 import numpy as np
-from tqdm import tqdm
 
 
 class FaceDataset:
@@ -21,11 +20,15 @@ class FaceDataset:
 
         self.paths = self.paths[:n]
         np.random.shuffle(self.paths)
+        self.ix_to_name = {}
 
         # TODO: ideally we would shuffle this so that a different n points gets loaded every time
         for ix, path in enumerate(self.paths):
             e = np.load(path)
             l = len(e)
+
+            name = os.path.basename(path).replace(".npy", "")
+            self.ix_to_name[ix] = name
 
             # get random indices
             ixs = np.arange(l)
@@ -53,6 +56,9 @@ class FaceDataset:
 
     def dev(self):
         return self.data[2], self.labels[2]
+
+    def all(self):
+        return np.concatenate(self.data), np.concatenate(self.labels)
 
 
 if __name__ == '__main__':
