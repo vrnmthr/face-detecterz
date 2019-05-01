@@ -3,10 +3,11 @@ import time
 import cv2
 import numpy as np
 import torch.nn
+from imutils import face_utils
+from tqdm import tqdm
 
 from align_faces import extract_faces, align_faces
-from openface import load_openface, preprocess_single, preprocess_batch
-from tqdm import tqdm
+from openface import load_openface, preprocess_batch
 
 video_capture = cv2.VideoCapture(0)
 device = ""
@@ -74,38 +75,37 @@ def main():
     while True:
         # ret is error code but we don't care about it
         ret, frame = video_capture.read()
-        # cv2.imshow("wow", frame)
-        # cv2.waitKey(0)
+        if ret:
+            # extract and align faces
+            rects = extract_faces(frame)
+            faces = align_faces(frame, rects)
 
-        # Trained on the haarcascade_frontalface_default dataset
-        faces = faceCascade.detectMultiScale(
-            frame,
-            scaleFactor=1.1,
-            minNeighbors=5,
-            minSize=(30, 30),
-            flags=cv2.CASCADE_SCALE_IMAGE
-        )
+            # generate embeddings
+            tensor = preprocess_batch(faces)
+            embeddings = openFace(tensor)
 
-        for (x, y, w, h) in faces:
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            faceCrop = frame[y:y + h, x:x + w]
-            faceCrop = align_and_extract_faces(faceCrop)[0]
-            cv2.imshow("proposed face extraction", faceCrop)
-            faceCrop = preprocess_single(faceCrop)
-            latentFaceVector = openFace(faceCrop)
-            latentFaceVector = latentFaceVector.detach().numpy()
-            pred = clf.predict([latentFaceVector])
+            # predict classes for all faces
+            pred = clf.predict(embeddings)
+            # TODO: convert integers to names
+            # pred_names =
             print(pred)
-            #TODO get confidence here
+
+            # determine if we need to trigger retraining
+            # TODO: get confidence here
             prev_conf.append(confidence)
             if len(prev_conf) > CONF_TO_STORE:
                 prev_conf.pop(0)
-            if np.sum(prev_conf) / CONF_TO_STORE < CONF_THRESHOLD and len(prev_conf) == CONF_TO_STORE:  # TODO: Create heuristic for confidence and track frame history.
+            if np.sum(prev_conf) / CONF_TO_STORE < CONF_THRESHOLD and len(
+                    prev_conf) == CONF_TO_STORE:  # TODO: Create heuristic for confidence and track frame history.
                 print("We don't recognize you!")
                 capture_faces()
-            # TODO: Tag the frame with facerino -- get the name somehow
-            else:
-                cv2.putText(frame, str(classPredicted), (x, y), cv2.FONT_HERSHEY_PLAIN, 1.5, (0, 255, 0), 2)
+
+            # draw all bounding boxes with text
+            for i in range(len(rects)):
+                x, y, w, h = face_utils.rect_to_bb(rects[i])
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                cv2.putText(frame, str(pred[i]), (x, y), cv2.FONT_HERSHEY_PLAIN, 1.5, (0, 255, 0), 2)
+
         cv2.imshow('Camera Feed', frame)
         cv2.waitKey(0)
 
