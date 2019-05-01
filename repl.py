@@ -17,7 +17,7 @@ else:
 openFace = load_openface(device)
 # clf = svm.SVC(kernel="linear", C=1.6)
 
-CONF_THRESHOLD = .5
+CONF_THRESHOLD = .75
 
 idxToName = {}  # TODO: Write function to populate.
 
@@ -67,8 +67,9 @@ def capture_faces(seconds=5, sampling_duration=0.1):
 def main():
     # to store previous confidences to determine whether a face exists
     CONF_TO_STORE = 30
-    prev_conf = np.zeros(CONF_TO_STORE)
+    prev_conf = []
     conf_idx = 0
+
     while True:
         # ret is error code but we don't care about it
         ret, frame = video_capture.read()
@@ -94,8 +95,11 @@ def main():
             latentFaceVector = latentFaceVector.detach().numpy()
             pred = clf.predict([latentFaceVector])
             print(pred)
-            conf_idx += 1
-            if np.sum(prev_conf) / CONF_TO_STORE < CONF_THRESHOLD:  # TODO: Create heuristic for confidence and track frame history.
+            #TODO get confidence here
+            prev_conf.append(confidence)
+            if len(prev_conf) > CONF_TO_STORE:
+                prev_conf.pop(0)
+            if np.sum(prev_conf) / CONF_TO_STORE < CONF_THRESHOLD and len(prev_conf) == CONF_TO_STORE:  # TODO: Create heuristic for confidence and track frame history.
                 print("We don't recognize you!")
                 capture_faces()
             # TODO: Tag the frame with facerino -- get the name somehow
