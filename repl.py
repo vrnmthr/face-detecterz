@@ -16,7 +16,7 @@ if torch.cuda.is_available():
 else:
     device = "cpu"
 openFace = load_openface(device)
-# clf = svm.SVC(kernel="linear", C=1.6)
+clf = svm.SVC(kernel="linear", C=1.6)
 
 CONF_THRESHOLD = .75
 
@@ -71,40 +71,45 @@ def main():
     CONF_TO_STORE = 30
     prev_conf = []
     conf_idx = 0
-
+    classes = 0
     while True:
         # ret is error code but we don't care about it
         ret, frame = video_capture.read()
         if ret:
             # extract and align faces
             rects = extract_faces(frame)
-            faces = align_faces(frame, rects)
+            if len(rects) > 0:
+                faces = align_faces(frame, rects)
 
-            # generate embeddings
-            tensor = preprocess_batch(faces)
-            embeddings = openFace(tensor)
+                # generate embeddings
+                tensor = preprocess_batch(faces)
+                embeddings = openFace(tensor)
 
-            # predict classes for all faces
-            pred = clf.predict(embeddings)
-            # TODO: convert integers to names
-            # pred_names =
-            print(pred)
+                # predict classes for all faces
+                pred = clf.predict_proba(embeddings)
+                # TODO: convert integers to names
+                # pred_names =
+                print(pred)
+                predicted_class = np.argmax(predict_proba)
+                confidence = pred[predicted_class]
+                print(confidence)   
+                # determine if we need to trigger retraining
+                # TODO: get confidence here
+                prev_conf.append(confidence)
+                if len(prev_conf) > CONF_TO_STORE:
+                    prev_conf.pop(0)
+                if (np.sum(prev_conf) / CONF_TO_STORE < CONF_THRESHOLD and len(
+                        prev_conf) == CONF_TO_STORE) or classes == 0:  # TODO: Create heuristic for confidence and track frame history.
+                    print("We don't recognize you!")
+                    face_embedding_samples = capture_faces()
+                    classes += 1
+                    cfg.fit(face_embedding_samples, classes)
 
-            # determine if we need to trigger retraining
-            # TODO: get confidence here
-            prev_conf.append(confidence)
-            if len(prev_conf) > CONF_TO_STORE:
-                prev_conf.pop(0)
-            if np.sum(prev_conf) / CONF_TO_STORE < CONF_THRESHOLD and len(
-                    prev_conf) == CONF_TO_STORE:  # TODO: Create heuristic for confidence and track frame history.
-                print("We don't recognize you!")
-                capture_faces()
-
-            # draw all bounding boxes with text
-            for i in range(len(rects)):
-                x, y, w, h = face_utils.rect_to_bb(rects[i])
-                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                cv2.putText(frame, str(pred[i]), (x, y), cv2.FONT_HERSHEY_PLAIN, 1.5, (0, 255, 0), 2)
+                # draw all bounding boxes with text
+                for i in range(len(rects)):
+                    x, y, w, h = face_utils.rect_to_bb(rects[i])
+                    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                    cv2.putText(frame, str(pred[i]), (x, y), cv2.FONT_HERSHEY_PLAIN, 1.5, (0, 255, 0), 2)
 
         cv2.imshow('Camera Feed', frame)
         cv2.waitKey(0)

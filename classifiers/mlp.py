@@ -16,21 +16,22 @@ class Simple3MLP(nn.Module):
         out = self.mlp3(out)
         return out
     def fit(self, data, labels):
-        num_batches = len(labels) / batch_size
+        num_batches = len(labels) // self.batch_size
         optimizer = torch.optim.Adam(self.parameters(), lr=0.01)
         lossFunc = nn.CrossEntropyLoss()
-        for i in range(len(num_batches)):
-            data_batch = data[i*batch_size: (i+1)*batch_size]
-            labels_batch = labels[i*batch_size: (i+1)*batch_size]
+        print("=======")
+        for i in range(num_batches):
+            data_batch = data[i*self.batch_size: (i+1)*self.batch_size]
+            labels_batch = labels[i*self.batch_size: (i+1)*self.batch_size]
             logits = self.forward(torch.tensor(data_batch))
-            print(np.shape(logits))
-            print(np.shape(labels_batch))
-            loss = lossFunc(logits, labels_batch)
+            loss = lossFunc(logits, torch.tensor(labels_batch))
+            print(loss.item())
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
     def predict(self, data):
-        return np.argmax(self.forward(data).numpy())
+
+        return np.argmax(self.forward(torch.tensor(data)).detach().numpy())
 
 class Simple2MLP(nn.Module):
     def __init__(self, inputSize=128, mlpHiddenSize=300, numClasses=100):
