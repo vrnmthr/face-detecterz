@@ -10,6 +10,7 @@ from sklearn.preprocessing import scale
 from dataset import FaceDataset
 from tqdm import tqdm
 from hypersphere import to_spherical
+from classifiers.mlp import Simple3MLP
 
 
 def train(clf, data, labels):
@@ -41,7 +42,7 @@ def make_graphs(dir, clfs):
     Plots accuracy vs. number of classes, training time vs. number of classes and eval time vs. number of classes
     """
     # TODO: we actually want time taken to "add" a class instead of "training time"; these two are not necessarily equal
-    num_classes = [2, 10, 50, 100]
+    num_classes = [100]
     result_shape = (len(clfs), len(num_classes))
     metrics = {
         "accs": np.empty(result_shape),
@@ -70,10 +71,11 @@ def make_graphs(dir, clfs):
 
 
 if __name__ == '__main__':
-    path = "embeddings/test3"
+    path = "embeddings/known"
     # TODO: all sorts of grid searches need to be done over these to actually determine what the right hyperparams are
     # I've just sorta randomly initialized them for now with what I think would work best
     clfs = {
+        "3-Layer Multi-Perceptron": Simple3MLP(),
         "linear svm": svm.SVC(kernel="linear", gamma="scale", C=1.6),
         "knn": KNeighborsClassifier(weights="distance"),
         # "gaussian process": GaussianProcessClassifier(),

@@ -88,7 +88,8 @@ def main():
         for (x, y, w, h) in faces:
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
             faceCrop = frame[y:y + h, x:x + w]
-            faceCrop = align_and_extract_faces(faceCrop)
+            faceCrop = align_and_extract_faces(faceCrop)[0]
+            cv2.imshow("proposed face extraction", faceCrop)
             faceCrop = preprocess_single(faceCrop)
             latentFaceVector = openFace(faceCrop)
             latentFaceVector = latentFaceVector.detach().numpy()
