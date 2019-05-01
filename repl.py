@@ -22,7 +22,7 @@ CONF_THRESHOLD = .5
 idxToName = {}  # TODO: Write function to populate.
 
 
-def capture_faces(seconds=5, sampling_duration=0.1):
+def capture_faces(seconds=5, sampling_duration=0.1, debug=False):
     print("Capturing! about to capture {} seconds of video".format(seconds))
     start_time = time.time()
 
@@ -58,8 +58,9 @@ def capture_faces(seconds=5, sampling_duration=0.1):
         frame = frames[i]
         sample = align_faces(frame, [rect])[0]
         samples.append(sample)
-        cv2.imshow("samples", sample)
-        cv2.waitKey(0)
+        if debug:
+            cv2.imshow("samples", sample)
+            cv2.waitKey(0)
 
     return samples
 
@@ -110,4 +111,4 @@ def main():
 
 
 if __name__ == "__main__":
-    capture_faces(seconds=10, sampling_duration=0.25)
+    samples = capture_faces(seconds=10, sampling_duration=0.25, debug=True)
