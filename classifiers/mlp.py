@@ -16,13 +16,15 @@ class Simple3MLP(nn.Module):
         out = self.mlp3(out)
         return out
     def fit(self, data, labels):
-        np.array_split(data, self.batch_size)
+        num_batches = len(labels) / batch_size
         optimizer = torch.optim.Adam(self.parameters(), lr=0.01)
         lossFunc = nn.CrossEntropyLoss()
-        for i in range(len(data)):
-            data_batch = data[i]
-            labels_batch = labels[i]
+        for i in range(len(num_batches)):
+            data_batch = data[i*batch_size: (i+1)*batch_size]
+            labels_batch = labels[i*batch_size: (i+1)*batch_size]
             logits = self.forward(torch.tensor(data_batch))
+            print(np.shape(logits))
+            print(np.shape(labels_batch))
             loss = lossFunc(logits, labels_batch)
             loss.backward()
             optimizer.step()
