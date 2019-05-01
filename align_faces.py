@@ -6,13 +6,13 @@ import numpy as np
 from imutils import face_utils
 
 FACE_SIZE = 96
-TEMPLATE = np.load("openface_template.npy")
+TEMPLATE = np.load("data/openface_template.npy")
 TPL_MIN, TPL_MAX = np.min(TEMPLATE, axis=0), np.max(TEMPLATE, axis=0)
 MINMAX_TEMPLATE = (TEMPLATE - TPL_MIN) / (TPL_MAX - TPL_MIN) * FACE_SIZE
 # left eye inside, right eye inside, nose
 LANDMARKS = [39, 42, 33]
 DETECTOR = dlib.get_frontal_face_detector()
-PREDICTOR = dlib.shape_predictor("shape_predictor_5_face_landmarks.dat")
+PREDICTOR = dlib.shape_predictor("data/shape_predictor_5_face_landmarks.dat")
 
 
 def align_faces(img, faces, test=False):

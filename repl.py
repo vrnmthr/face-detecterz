@@ -1,26 +1,20 @@
+import argparse
 import time
+from collections import deque
 
 import cv2
 import numpy as np
 import torch.nn
 from imutils import face_utils
+from sklearn import svm
 from tqdm import tqdm
 
 from align_faces import extract_faces, align_faces
+from dataset import FaceDataset
 from openface import load_openface, preprocess_batch
 
-video_capture = cv2.VideoCapture(0)
-device = ""
-if torch.cuda.is_available():
-    device = "cuda:0"
-else:
-    device = "cpu"
-openFace = load_openface(device)
-clf = svm.SVC(kernel="linear", C=1.6)
-
-CONF_THRESHOLD = .75
-
-idxToName = {}  # TODO: Write function to populate.
+CONF_THRESHOLD = 0.8
+CONF_TO_STORE = 30
 
 
 def capture_faces(seconds=5, sampling_duration=0.1, debug=False):
@@ -66,12 +60,50 @@ def capture_faces(seconds=5, sampling_duration=0.1, debug=False):
     return samples
 
 
-def main():
+def add_name_to_dictionary(name, num_classes):
+    idx_to_name[num_classes] = name
+    # TODO: with later models, implement persistence as below
+    # f = open("data/idx_to_name.pkl", 'w')
+    # pickle.dump(idx_to_name, f)
+
+
+def retrain_classifier(clf):
+    ds = FaceDataset("data/embeddings")
+    data, labels = ds.all()
+    clf = clf.fit(data, labels)
+    return clf
+
+
+def add_face(clf, num_classes):
+    name = input("We don't recognize you! Please enter your name:\n").strip().lower()
+    while name in name_to_idx:
+        name = input("We don't recognize you! Please enter your name:\n").strip().lower()
+    samples = capture_faces()
+    embeddings = preprocess_batch(samples)
+    embeddings = openFace(embeddings)
+    embeddings = embeddings.detach().numpy()
+
+    # save name and embeddings
+    np.save("data/embeddings/{}.npy".format(name), embeddings)
+    add_name_to_dictionary(name, num_classes)
+    clf = retrain_classifier(clf)
+    return clf
+
+
+def load_model():
+    # TODO: in the future we should look at model persistence to disk
+    clf = svm.SVC(kernel="linear", C=1.6, probability=True)
+    ds = FaceDataset("data/embeddings")
+    data, labels = ds.all()
+    num_classes = len(np.unique(labels))
+    clf = clf.fit(data, labels)
+    return clf, num_classes, ds.ix_to_name
+
+
+def main(clf, num_classes):
     # to store previous confidences to determine whether a face exists
-    CONF_TO_STORE = 30
-    prev_conf = []
-    conf_idx = 0
-    classes = 0
+    prev_conf = deque(maxlen=CONF_TO_STORE)
+    print("Starting...")
     while True:
         # ret is error code but we don't care about it
         ret, frame = video_capture.read()
@@ -79,45 +111,67 @@ def main():
             # extract and align faces
             rects = extract_faces(frame)
             if len(rects) > 0:
-                faces = align_faces(frame, rects)
 
-                # generate embeddings
-                tensor = preprocess_batch(faces)
-                embeddings = openFace(tensor)
-
-                # predict classes for all faces
-                pred = clf.predict_proba(embeddings)
-                # TODO: convert integers to names
-                # pred_names =
-                print(pred)
-                predicted_class = np.argmax(predict_proba)
-                confidence = pred[predicted_class]
-                print(confidence)   
-                # determine if we need to trigger retraining
-                # TODO: get confidence here
-                prev_conf.append(confidence)
-                if len(prev_conf) > CONF_TO_STORE:
-                    prev_conf.pop(0)
-                if (np.sum(prev_conf) / CONF_TO_STORE < CONF_THRESHOLD and len(
-                        prev_conf) == CONF_TO_STORE) or classes == 0:  # TODO: Create heuristic for confidence and track frame history.
-                    print("We don't recognize you!")
-                    face_embedding_samples = capture_faces()
-                    classes += 1
-                    cfg.fit(face_embedding_samples, classes)
-
-                # draw all bounding boxes with text
+                # draw all bounding boxes for faces
                 for i in range(len(rects)):
                     x, y, w, h = face_utils.rect_to_bb(rects[i])
                     cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                    cv2.putText(frame, str(pred[i]), (x, y), cv2.FONT_HERSHEY_PLAIN, 1.5, (0, 255, 0), 2)
 
-        cv2.imshow('Camera Feed', frame)
-        cv2.waitKey(0)
+                # generate embeddings
+                faces = align_faces(frame, rects)
+                tensor = preprocess_batch(faces)
+                embeddings = openFace(tensor)
+                embeddings = embeddings.detach().numpy()
+
+                # predict classes for all faces and label them if greater than threshold
+                if num_classes > 0:
+                    probs = clf.predict_proba(embeddings)
+                    predictions = np.argmax(probs, axis=1)
+                    probs = np.max(probs, axis=1)
+                    print(probs)
+                    names = [idx_to_name[idx] for idx in predictions]
+                    # replace all faces below confidence w unknown
+                    names = [names[i] if probs[i] > CONF_THRESHOLD else "UNKNOWN" for i in range(len(probs))]
+                    print("Hi {}!".format(names))
+                    for i in range(len(names)):
+                        x, y, w, h = face_utils.rect_to_bb(rects[i])
+                        cv2.putText(frame, names[i], (x, y), cv2.FONT_HERSHEY_PLAIN, 1.5, (0, 255, 0), 2)
+
+                # determine if we need to trigger retraining
+                # we only retrain if there is one person in the frame and they are unrecognized or there are 0 classes
+                if len(faces) == 1:
+                    if num_classes == 0:
+                        clf = add_face(clf, num_classes)
+                        num_classes += 1
+                    else:
+                        prev_conf.append(probs[0])
+                        if np.mean(prev_conf) < CONF_THRESHOLD and len(prev_conf) == CONF_TO_STORE:
+                            clf = add_face(clf, num_classes)
+                            num_classes += 1
+            else:
+                print("No faces detected.")
+            cv2.imshow('Camera Feed', frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                return
+        else:
+            print("ERROR: no frame captured")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--gpu", action="store_true", help="run with this flag to run on a GPU")
+    args = vars(parser.parse_args())
+
+    device = torch.device("cuda") if args["gpu"] and torch.cuda.is_available() else torch.device("cpu")
+    print("Using device {}".format(device))
+
+    video_capture = cv2.VideoCapture(0)
+    openFace = load_openface(device)
+
+    clf, num_classes, idx_to_name = load_model()
+    name_to_idx = {idx_to_name[idx]: idx for idx in idx_to_name}
+    main(clf, num_classes)
 
     # When everything is done, release the capture
     video_capture.release()
     cv2.destroyAllWindows()
-
-
-if __name__ == "__main__":
-    samples = capture_faces(seconds=10, sampling_duration=0.25, debug=True)
