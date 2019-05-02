@@ -2,7 +2,7 @@ import torch.nn as nn
 import numpy as np
 import torch
 class Simple3MLP(nn.Module):
-    def __init__(self, inputSize=128, mlpHiddenSize1=300, mlpHiddenSize2=200, numClasses=100, batch_size=10): #100 is a placeholder for  now
+    def __init__(self, inputSize=128, mlpHiddenSize1=300, mlpHiddenSize2=300, numClasses=100, batch_size=10): #100 is a placeholder for  now
         super(Simple3MLP, self).__init__()
         self.mlp1 = nn.Linear(inputSize, mlpHiddenSize1)
         self.mlp2 = nn.Linear(mlpHiddenSize1, mlpHiddenSize2)
@@ -20,7 +20,7 @@ class Simple3MLP(nn.Module):
         optimizer = torch.optim.Adam(self.params, lr=0.001)
         lossFunc = nn.CrossEntropyLoss()
         print("=======")
-        for i in range(2):
+        for i in range(40):
             run_loss = 0
             acc = 0
             for i in range(num_batches):
@@ -32,24 +32,48 @@ class Simple3MLP(nn.Module):
                 loss.backward()
                 optimizer.step()
                 optimizer.zero_grad()
-                acc += np.float32(np.sum(np.argmax(logits.detach().numpy()) == labels_batch)) / len(labels_batch)
+                acc += np.float32(np.sum(np.argmax(logits.detach().numpy(), axis=1) == labels_batch)) / len(labels_batch)
             print(run_loss / num_batches)
             print(acc / num_batches)
     def predict(self, data):
-        print(np.argmax(self.forward(torch.tensor(data)).detach().numpy()), axis=1)
-        return np.argmax(self.forward(torch.tensor(data)).detach().numpy())
+        print(np.argmax(self.forward(torch.tensor(data)).detach().numpy(), axis=1))
+        return np.argmax(self.forward(torch.tensor(data)).detach().numpy(), axis=1)
 
 class Simple2MLP(nn.Module):
-    def __init__(self, inputSize=128, mlpHiddenSize=300, numClasses=100):
+    def __init__(self, inputSize=128, mlpHiddenSize=300, numClasses=100, batch_size=10):
         super(Simple2MLP, self).__init__()
         self.mlp1 = nn.Linear(inputSize, mlpHiddenSize) 
         self.mlp2 = nn.Linear(mlpHiddenSize, numClasses)
-
+        self.batch_size = batch_size
+        self.params = list(self.mlp1.parameters()) + list(self.mlp2.parameters())
     def forward(self, faceImg):
         out = self.mlp1(faceImg)
         out = torch.relu(out)
         out = self.mlp2(out)
         return out
+    def fit(self, data, labels):
+        num_batches = len(labels) // self.batch_size
+        optimizer = torch.optim.Adam(self.params, lr=0.001)
+        lossFunc = nn.CrossEntropyLoss()
+        print("=======")
+        for i in range(20):
+            run_loss = 0
+            acc = 0
+            for i in range(num_batches):
+                data_batch = data[i*self.batch_size: (i+1)*self.batch_size]
+                labels_batch = labels[i*self.batch_size: (i+1)*self.batch_size]
+                logits = self.forward(torch.tensor(data_batch))
+                loss = lossFunc(logits, torch.tensor(labels_batch))
+                run_loss += loss.item()
+                loss.backward()
+                optimizer.step()
+                optimizer.zero_grad()
+                acc += np.float32(np.sum(np.argmax(logits.detach().numpy(), axis=1) == labels_batch)) / len(labels_batch)
+            print(run_loss / num_batches)
+            print(acc / num_batches)
+    def predict(self, data):
+        print(np.argmax(self.forward(torch.tensor(data)).detach().numpy(), axis=1))
+        return np.argmax(self.forward(torch.tensor(data)).detach().numpy(), axis=1)
 
 def load_mlp(device, numLayers):
     model  = None

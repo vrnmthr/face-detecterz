@@ -10,7 +10,7 @@ from sklearn.preprocessing import scale
 from dataset import FaceDataset
 from tqdm import tqdm
 from hypersphere import to_spherical
-from classifiers.mlp import Simple3MLP
+from classifiers.mlp import Simple3MLP, Simple2MLP
 
 
 def train(clf, data, labels):
@@ -75,6 +75,7 @@ if __name__ == '__main__':
     # TODO: all sorts of grid searches need to be done over these to actually determine what the right hyperparams are
     # I've just sorta randomly initialized them for now with what I think would work best
     clfs = {
+        "2-Layer Multi-Perceptron": Simple2MLP(),
         "3-Layer Multi-Perceptron": Simple3MLP(),
         "linear svm": svm.SVC(kernel="linear", gamma="scale", C=1.6),
         "knn": KNeighborsClassifier(weights="distance"),
