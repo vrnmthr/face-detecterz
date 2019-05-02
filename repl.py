@@ -17,7 +17,7 @@ CONF_THRESHOLD = 0.8
 CONF_TO_STORE = 30
 
 
-def capture_faces(seconds=5, sampling_duration=0.1, debug=False):
+def capture_faces(seconds=10, sampling_duration=0.1, debug=False):
     print("Capturing! about to capture {} seconds of video".format(seconds))
     start_time = time.time()
 
@@ -79,6 +79,9 @@ def add_face(clf, num_classes):
     while name in name_to_idx:
         name = input("We don't recognize you! Please enter your name:\n").strip().lower()
     samples = capture_faces()
+    while len(samples) < 75:
+        print("We could not capture sufficient samples. Please try again.\n")
+        samples = capture_faces()
     embeddings = preprocess_batch(samples)
     embeddings = openFace(embeddings)
     embeddings = embeddings.detach().numpy()
@@ -124,30 +127,26 @@ def main(clf, num_classes):
                 embeddings = embeddings.detach().numpy()
 
                 # predict classes for all faces and label them if greater than threshold
-                if num_classes > 0:
-                    probs = clf.predict_proba(embeddings)
-                    predictions = np.argmax(probs, axis=1)
-                    probs = np.max(probs, axis=1)
-                    print(probs)
-                    names = [idx_to_name[idx] for idx in predictions]
-                    # replace all faces below confidence w unknown
-                    names = [names[i] if probs[i] > CONF_THRESHOLD else "UNKNOWN" for i in range(len(probs))]
-                    print("Hi {}!".format(names))
-                    for i in range(len(names)):
-                        x, y, w, h = face_utils.rect_to_bb(rects[i])
-                        cv2.putText(frame, names[i], (x, y), cv2.FONT_HERSHEY_PLAIN, 1.5, (0, 255, 0), 2)
+                probs = clf.predict_proba(embeddings)
+                predictions = np.argmax(probs, axis=1)
+                probs = np.max(probs, axis=1)
+                print(probs)
+                names = [idx_to_name[idx] for idx in predictions]
+                # replace all faces below confidence w unknown
+                names = [names[i] if probs[i] > CONF_THRESHOLD else "UNKNOWN" for i in range(len(probs))]
+                print("Hi {}!".format(names))
+                for i in range(len(names)):
+                    x, y, w, h = face_utils.rect_to_bb(rects[i])
+                    cv2.putText(frame, names[i], (x, y), cv2.FONT_HERSHEY_PLAIN, 1.5, (0, 255, 0), 2)
 
                 # determine if we need to trigger retraining
                 # we only retrain if there is one person in the frame and they are unrecognized or there are 0 classes
                 if len(faces) == 1:
-                    if num_classes == 0:
+                    prev_conf.append(probs[0])
+                    if np.mean(prev_conf) < CONF_THRESHOLD and len(prev_conf) == CONF_TO_STORE:
                         clf = add_face(clf, num_classes)
                         num_classes += 1
-                    else:
-                        prev_conf.append(probs[0])
-                        if np.mean(prev_conf) < CONF_THRESHOLD and len(prev_conf) == CONF_TO_STORE:
-                            clf = add_face(clf, num_classes)
-                            num_classes += 1
+                        prev_conf.clear()
             else:
                 print("No faces detected.")
             cv2.imshow('Camera Feed', frame)
@@ -158,6 +157,7 @@ def main(clf, num_classes):
 
 
 if __name__ == "__main__":
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--gpu", action="store_true", help="run with this flag to run on a GPU")
     args = vars(parser.parse_args())
@@ -168,7 +168,17 @@ if __name__ == "__main__":
     video_capture = cv2.VideoCapture(0)
     openFace = load_openface(device)
 
+    # samples = capture_faces()
+    # embeddings = preprocess_batch(samples)
+    # embeddings = openFace(embeddings)
+    # embeddings = embeddings.detach().numpy()
+    # 
+    # # save name and embeddings
+    # np.save("data/embeddings/varun.npy", embeddings)
+
     clf, num_classes, idx_to_name = load_model()
+    # cannot function as a classifier if less than 2 classes
+    assert num_classes >= 2
     name_to_idx = {idx_to_name[idx]: idx for idx in idx_to_name}
     main(clf, num_classes)
 
