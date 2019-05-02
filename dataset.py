@@ -17,7 +17,7 @@ class FaceDataset:
         n = len(self.paths) if n is None else n
         self.data = [[], [], []]
         self.labels = [[], [], []]
-
+        self.by_class = {}
         self.paths = self.paths[:n]
         np.random.shuffle(self.paths)
         self.ix_to_name = {}
@@ -28,6 +28,7 @@ class FaceDataset:
             l = len(e)
 
             name = os.path.basename(path).replace(".npy", "")
+            self.by_class[name] = e
             self.ix_to_name[ix] = name
 
             # get random indices
