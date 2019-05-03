@@ -1,4 +1,5 @@
 import argparse
+import copy
 import glob
 import os
 
@@ -19,45 +20,84 @@ A first pass for a feed-forward network
 LOSS_FUNC = nn.CrossEntropyLoss()
 BATCH_SIZE = 16
 LEARNING_RATE = 0.0001
-NUM_EPOCHS = 3
+NUM_EPOCHS = 10
 
 
-class BinaryFaceClassifier(nn.Module):
+class BinaryFaceClassifier:
+
+    def __init__(self, network, threshold):
+        self.centroids = []
+        self.network = network
+        self.threshold = threshold
+
+    def fit(self, data, labels):
+        centroids = []
+        # these should be sorted
+        for i in np.unique(labels):
+            samples = data[labels == i]
+            centroid = np.mean(samples, axis=0)
+            centroids.append(centroid)
+        self.centroids = np.asarray(centroids)
+        return self
+
+    def predict_proba(self, data):
+        """
+        Returns a probability prediction for each face
+        :param data:
+        :return:
+        """
+        probs = []
+        for sample in data:
+            firsts = np.asarray([sample for _ in self.centroids])
+            seconds = copy.deepcopy(self.centroids)  # TODO: check if this is necessary
+            pred = self.network.evaluate(firsts, seconds)
+            prob = pred[:, 1]
+            probs.append(prob)
+        return np.asarray(probs)
+
+
+class BinaryFaceNetwork(nn.Module):
 
     def __init__(self, device):
         """
         3-layer classifier that takes in concatenated vectors as input and outputs
         1 if they belong to the same class and 0 otherwise
         """
-        super(BinaryFaceClassifier, self).__init__()
+        super(BinaryFaceNetwork, self).__init__()
         self.device = device
 
         # Define the layers
-        self.first = nn.Linear(256, 128)
-        self.second = nn.Linear(128, 64)
-        self.third = nn.Linear(64, 2)
+        self.first = nn.Linear(256, 64)
+        self.second = nn.Linear(64, 16)
+        self.third = nn.Linear(16, 2)
         self.to(self.device)
 
-    def forward(self, inputs):
+    def forward(self, first, second):
         """
         Implements a forward pass through the network
-        :param inputs: a batch-size x features tensor
-        :return: a batch-size x categories tensor representing probability of being in each category
+        :param inputs: a (batch, 128) tensor
+        :return: size (batch, 2) tensor representing logits
         """
-        out = F.relu(self.first(inputs))
+        out = torch.cat((first, second), dim=1)
+        out = F.relu(self.first(out))
         out = F.relu(self.second(out))
         out = self.third(out)
         return out
 
     @torch.no_grad()
-    def evaluate(self, seq: torch.Tensor):
+    def evaluate(self, firsts, seconds):
         """
-        Returns a class code for a given sequence
-        :param seq: (features) tensor
-        :return: int representing activity class
+        Runs a single batch through the network and returns the results
+        :param firsts: (n, 128) numpy array
+        :param seconds: (n, 128) numpy array
+        :return: (n, 2) logits
         """
-        out = self.forward(seq)
-        return torch.argmax(out).item()
+        firsts = torch.from_numpy(firsts)
+        seconds = torch.from_numpy(seconds)
+        results = self.forward(firsts, seconds)
+        results = F.softmax(results)
+        results = results.detach().numpy()
+        return results
 
     @torch.enable_grad()
     def train_with(self, train, dev, num_epochs, learning_rate, save: str):
@@ -71,20 +111,22 @@ class BinaryFaceClassifier(nn.Module):
                 loader = loaders[mode]
                 # run training step across entire batch
                 for batch in tqdm(loader, desc='{} epoch {}/{}'.format(mode, epoch + 1, num_epochs)):
-                    inputs = torch.Tensor(batch['sequence']).to(self.device)
+
+                    firsts = torch.Tensor(batch['first']).to(self.device)
+                    seconds = torch.Tensor(batch['second']).to(self.device)
                     labels = torch.LongTensor(batch['label']).to(self.device)
 
                     if mode == 'train':
                         self.train()  # tell pytorch to set the model to train mode
                         self.zero_grad()
-                        out = self.forward(inputs)
+                        out = self.forward(firsts, seconds)
                         loss = LOSS_FUNC(out, labels)
                         loss.backward()
                         optimizer.step()
                     else:
                         self.eval()
                         with torch.no_grad():
-                            out = self.forward(inputs)
+                            out = self.forward(firsts, seconds)
                             loss = LOSS_FUNC(out, labels)
 
                     loss_history[mode][epoch].append(loss.item())
@@ -108,15 +150,17 @@ class BinaryFaceClassifier(nn.Module):
         confusion = np.zeros((2, 2))
         for i in tqdm(range(len(data))):
             sample = data[i]
-            tag = sample['label']
-            input = torch.from_numpy(sample['sequence'])
-            result = self.evaluate(input)
+            tag, first, second = sample['label'], sample['first'], sample['second']
+            first = np.expand_dims(first, 0)
+            second = np.expand_dims(second, 0)
+            result = self.evaluate(first, second)
+            result = np.argmax(result, axis=1)[0]
             confusion[result, tag] += 1
         confusion /= len(data)
         return confusion
 
 
-def load_facepair_dataset(path, size=10000, ratio=0.5):
+def load_facepair_dataset(path, size=10000, ratio=0.3):
     # load all faces
     faces = []
     paths = glob.glob(os.path.join(path, "*.npy"))
@@ -124,10 +168,8 @@ def load_facepair_dataset(path, size=10000, ratio=0.5):
     for ix, path in enumerate(paths):
         e = np.load(path)
         faces.append(e)
-    faces = np.asarray(faces)
 
-    data = []
-    labels = []
+    firsts, seconds, labels = [], [], []
 
     # generate all embeddings that are from the same people
     n = int(size * ratio)
@@ -135,7 +177,9 @@ def load_facepair_dataset(path, size=10000, ratio=0.5):
     for p in people:
         samples = faces[p]
         ixs = np.random.randint(0, high=len(samples), size=2)
-        data.append(np.concatenate(samples[ixs]))
+        first, second = samples[ixs]
+        firsts.append(first)
+        seconds.append(second)
         labels.append(1)
 
     # generate all embeddings that are from different people
@@ -145,32 +189,37 @@ def load_facepair_dataset(path, size=10000, ratio=0.5):
         samples = faces[people]
         first = samples[0][np.random.randint(0, high=len(samples[0]))]
         second = samples[1][np.random.randint(0, high=len(samples[1]))]
-        data.append(np.concatenate([first, second]))
+        firsts.append(first)
+        seconds.append(second)
         labels.append(0)
 
-    data = np.asarray(data)
-    labels = np.asarray(labels)
-    return data, labels
+    firsts, seconds, labels = np.asarray(firsts), np.asarray(seconds), np.asarray(labels)
+    return firsts, seconds, labels
 
 
-class LabelledDataset(Dataset):
+class PairDataset(Dataset):
     """
     Loads a generic labelled dataset
     """
 
-    def __init__(self, data, labels):
+    def __init__(self, firsts, seconds, labels):
         """
         :param csv: path to processed csv file
         :param transform: optional transform to be applied on a sample
         """
-        self.data = data
+        self.firsts = firsts
+        self.seconds = seconds
         self.labels = labels
 
     def __len__(self):
-        return len(self.data)
+        return len(self.labels)
 
     def __getitem__(self, idx: int):
-        sample = {'label': self.labels[idx], 'sequence': self.data[idx]}
+        sample = {
+            'label': self.labels[idx],
+            'first': self.firsts[idx],
+            'second': self.seconds[idx]
+        }
         return sample
 
 
@@ -192,19 +241,21 @@ if __name__ == '__main__':
         device = torch.device(args.device)
     print("Using device {}".format(device))
 
-    model = BinaryFaceClassifier(device)
+    model = BinaryFaceNetwork(device)
     print(model)
 
-    # randomly slow down the data by a little bit
-    data, labels = load_facepair_dataset(args.dir, size=1000000)
-    n = len(data)
-    train_set = LabelledDataset(data[:int(0.8 * n)], labels[:int(0.8 * n)])
-    dev_set = LabelledDataset(data[int(0.8 * n):int(0.9 * n)], labels[int(0.8 * n):int(0.9 * n)])
-    test_set = LabelledDataset(data[int(0.9 * n):], labels[int(0.9 * n):])
+    print("Building datasets")
+    firsts, seconds, labels = load_facepair_dataset(os.path.join(args.dir, "train"), size=10000000)
+    train_set = PairDataset(firsts, seconds, labels)
+
+    firsts, seconds, labels = load_facepair_dataset(os.path.join(args.dir, "dev"), size=1000000)
+    dev_set = PairDataset(firsts, seconds, labels)
+
+    firsts, seconds, labels = load_facepair_dataset(os.path.join(args.dir, "test"), size=1000000)
+    test_set = PairDataset(firsts, seconds, labels)
 
     train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True)
     dev_loader = DataLoader(dev_set, batch_size=BATCH_SIZE, shuffle=True)
-    test_loader = DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=True)
 
     if args.restore == "":
         print("Training...")
@@ -221,6 +272,6 @@ if __name__ == '__main__':
         print("Model restored from disk.")
 
     print("Testing...")
-    confusion = model.test_with(train_set)
+    confusion = model.test_with(test_set)
     print("Accuracy: {}%".format(100 * np.sum(np.diag(confusion))))
     print(confusion)

@@ -12,6 +12,7 @@ from tqdm import tqdm
 from align_faces import extract_faces, align_faces
 from dataset import FaceDataset
 from openface import load_openface, preprocess_batch
+from classifiers.binary_face_classifier import BinaryFaceClassifier, BinaryFaceNetwork
 
 CONF_THRESHOLD = 0.7
 CONF_TO_STORE = 30
@@ -95,7 +96,10 @@ def add_face(clf, num_classes):
 
 def load_model():
     # TODO: in the future we should look at model persistence to disk
-    clf = svm.SVC(kernel="linear", C=1.6, probability=True)
+    # clf = svm.SVC(kernel="linear", C=1.6, probability=True)
+    network = BinaryFaceNetwork(device)
+    network.load_state_dict(torch.load("data/binary_face_classifier.pt", map_location=device))
+    clf = BinaryFaceClassifier(network, 0.5)
     ds = FaceDataset("data/embeddings")
     data, labels = ds.all()
     num_classes = len(np.unique(labels))
