@@ -102,7 +102,6 @@ def load_model():
     clf = clf.fit(data, labels)
     return clf, num_classes, ds.ix_to_name
 
-
 def main(clf, num_classes):
     # to store previous confidences to determine whether a face exists
     prev_conf = deque(maxlen=CONF_TO_STORE)
