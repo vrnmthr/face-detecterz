@@ -10,9 +10,9 @@ import glob
 import os
 import time
 
+import cv2
 import numpy as np
 import torch
-from skimage.io import imread
 from tqdm import tqdm
 
 import openface
@@ -24,7 +24,8 @@ whips = 6
 
 
 def crop_faces(f):
-    img = imread(f)
+    # loads a face as BGR
+    img = cv2.imread(f)
     if len(img.shape) != 3:
         # if image is black and white, throw it OUT
         return None
@@ -36,7 +37,7 @@ def crop_faces(f):
     return img
 
 
-def generate_embeddings(model, data_folder, n=None):
+def generate_embeddings(model, data_folder, n=None, max_per_class=50):
     generated = 0
     start = time.time()
 
@@ -45,19 +46,24 @@ def generate_embeddings(model, data_folder, n=None):
     people = people[:n]
 
     for person in tqdm(people):
-        id = os.path.basename(person)
-        files = os.path.join(person, "*.jpg")
-        imgs = []
-        for img_path in glob.glob(files):
-            img = crop_faces(img_path)
-            if img is not None:
-                imgs.append(img)
-        input = np.asarray(imgs)
-        generated += len(input)
-        input = openface.preprocess_batch(input)
-        embeddings = model(input)
-        embeddings = embeddings.detach().numpy()
-        np.save(os.path.join("embeddings/known", "{}.npy".format(id)), embeddings)
+        try:
+            id = os.path.basename(person)
+            if not os.path.exists(os.path.join("embeddings/known", "{}.npy".format(id))):
+                files = os.path.join(person, "*.jpg")
+                imgs = []
+                img_paths = glob.glob(files)[:max_per_class]
+                for img_path in img_paths:
+                    img = crop_faces(img_path)
+                    if img is not None:
+                        imgs.append(img)
+                input = np.asarray(imgs)
+                generated += len(input)
+                input = openface.preprocess_batch(input)
+                embeddings = model(input)
+                embeddings = embeddings.detach().numpy()
+                np.save(os.path.join("embeddings/known", "{}.npy".format(id)), embeddings)
+        except:
+            pass
 
     end = time.time()
     print("Generated {} embeddings with an average time of {}s".format(generated, (end - start) / generated))
@@ -71,4 +77,4 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
     device = torch.device("cuda") if args["gpu"] else torch.device("cpu")
     model = openface.load_openface(device)
-    generate_embeddings(model, args["data_folder"], n=1000)
+    generate_embeddings(model, args["data_folder"])
