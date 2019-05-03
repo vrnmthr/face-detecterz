@@ -11,9 +11,10 @@ TPL_MIN, TPL_MAX = np.min(TEMPLATE, axis=0), np.max(TEMPLATE, axis=0)
 MINMAX_TEMPLATE = (TEMPLATE - TPL_MIN) / (TPL_MAX - TPL_MIN) * FACE_SIZE
 # left eye inside, right eye inside, nose
 LANDMARKS = [39, 42, 33]
-DETECTOR = cv2.dnn.readNetFromTensorflow("data/opencv_face_detector_uint8.pb", "data/opencv_face_detector.pbtxt")
+DLIB_DETECTOR = dlib.get_frontal_face_detector()
+DNN_DETECTOR = cv2.dnn.readNetFromTensorflow("data/opencv_face_detector_uint8.pb", "data/opencv_face_detector.pbtxt")
 PREDICTOR = dlib.shape_predictor("data/shape_predictor_5_face_landmarks.dat")
-CONFIDENCE = 0.75
+CONFIDENCE = 0.9
 
 
 def align_faces(img, rects, test=False):
@@ -51,42 +52,46 @@ def align_faces(img, rects, test=False):
     return result
 
 
-def extract_faces(img):
+def extract_faces(img, algorithm="dlib"):
     """
     Extracts all faces from an image
     Inspiration from: https://www.pyimagesearch.com/2018/02/26/face-detection-with-opencv-and-deep-learning/#post_downloads
     :param img: standard openCV extracted image
+    :param algorithm: "dlib" or "dnn"
     :return: list of dlib rectangles
     """
-    (h, w) = img.shape[:2]
-    blob = cv2.dnn.blobFromImage(cv2.resize(img, (300, 300)), 1.0,
-                                 (300, 300), (104.0, 177.0, 123.0))
-    DETECTOR.setInput(blob)
-    detections = DETECTOR.forward()
-    filtered = []
+    rects = []
+    if algorithm == "dnn":
+        (h, w) = img.shape[:2]
+        blob = cv2.dnn.blobFromImage(cv2.resize(img, (300, 300)), 1.0,
+                                     (300, 300), (104.0, 117.0, 123.0))
+        DNN_DETECTOR.setInput(blob)
+        detections = DNN_DETECTOR.forward()
 
-    for i in range(detections.shape[2]):
-        # extract the confidence associated with the prediction
-        confidence = detections[0, 0, i, 2]
-        # filter out weak detections
-        if confidence > CONFIDENCE:
-            # compute box_coords as (startX, startY, endX, endY)
-            box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
-            startX, startY, endX, endY = box.astype("int")
-            # convert into dlib rectangle
-            rect = dlib.rectangle(startX, startY, endX, endY)
-            filtered.append(rect)
+        for i in range(detections.shape[2]):
+            # extract the confidence associated with the prediction
+            confidence = detections[0, 0, i, 2]
+            # filter out weak detections
+            if confidence > CONFIDENCE:
+                # compute box_coords as (startX, startY, endX, endY)
+                box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
+                startX, startY, endX, endY = box.astype("int")
+                # convert into dlib rectangle
+                rect = dlib.rectangle(startX, startY, endX, endY)
+                rects.append(rect)
+    else:
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        rects = DLIB_DETECTOR(img, 1)
+    return rects
 
-    return filtered
 
-
-def align_and_extract_faces(img, test=False):
+def align_and_extract_faces(img, test=False, algorithm="dlib"):
     """
     :param img: standard image ndarray
     :return: array of extracted, aligned faces
     """
-    rects = extract_faces(img)
-    aligned = align_faces(img, rects)
+    rects = extract_faces(img, algorithm)
+    aligned = align_faces(img, rects, test=test)
     return aligned
 
 

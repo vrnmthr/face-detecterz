@@ -91,6 +91,7 @@ def load_openface(device):
 def preprocess_single(img):
     """
     Preprocessing method for a single face for transformation.
+    IMPORTANT: THE IMAGE MUST BE BGR, NOT RGB
     """
     img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
     img = np.transpose(img, (2, 0, 1))
@@ -101,7 +102,8 @@ def preprocess_single(img):
 
 def preprocess_batch(imgs):
     """
-    Preprocess a batch of images for input into openface
+    Preprocess a batch of images for input into openface.
+    IMPORTANT: THE IMAGES MUST BE BGR, NOT RGB
     :param imgs:
     :return:
     """
