@@ -9,6 +9,7 @@ import torchvision
 from imutils import face_utils
 from sklearn import svm
 from tqdm import tqdm
+from PIL import Image
 
 from align_faces import extract_faces, align_faces
 from dataset import FaceDataset
@@ -57,8 +58,9 @@ def capture_faces(seconds=10, sampling_duration=0.1, debug=False):
         samples.append(sample)
         data_aug = augment_data(sample)
         samples.extend(data_aug)
-        cv2.imshow(data_aug[0])
-        cv2.waitKey(0)
+        for i in data_aug:
+            cv2.imshow("aug", i)
+            cv2.waitKey(0)
         if debug:
             cv2.imshow("samples", sample)
             cv2.waitKey(0)
@@ -69,10 +71,11 @@ def capture_faces(seconds=10, sampling_duration=0.1, debug=False):
 
 # for data augmentation — adjusts hue and saturation
 def augment_data(image):
-    hue1 = torchvision.transforms.functional.adjust_hue(image, .3)
-    hue2 = torchvision.transforms.functional.adjust_hue(image, -.3)
-    sat1 = torchvision.transforms.functional.adjust_saturation(image, 1.35)
-    sat2 = torchvision.transforms.functional.adjust_saturation(image, .65)
+    img = Image.fromarray(image)
+    hue1 = torchvision.transforms.functional.adjust_hue(img, .05)
+    hue2 = torchvision.transforms.functional.adjust_hue(img, -.05)
+    sat1 = torchvision.transforms.functional.adjust_saturation(img, 1.35)
+    sat2 = torchvision.transforms.functional.adjust_saturation(img, .65)
     return [np.array(hue1), np.array(hue2), np.array(sat1), np.array(sat2)]
 
 
@@ -199,6 +202,7 @@ if __name__ == "__main__":
     clf, num_classes, idx_to_name = load_model()
     # cannot function as a classifier if less than 2 classes
     assert num_classes >= 2
+    capture_faces()
     name_to_idx = {idx_to_name[idx]: idx for idx in idx_to_name}
     main(clf, num_classes)
 
