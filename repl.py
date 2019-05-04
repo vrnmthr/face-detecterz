@@ -202,7 +202,6 @@ if __name__ == "__main__":
     clf, num_classes, idx_to_name = load_model()
     # cannot function as a classifier if less than 2 classes
     assert num_classes >= 2
-    capture_faces()
     name_to_idx = {idx_to_name[idx]: idx for idx in idx_to_name}
     main(clf, num_classes)
 
