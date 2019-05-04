@@ -5,6 +5,7 @@ from collections import deque
 import cv2
 import numpy as np
 import torch.nn
+import torchvision
 from imutils import face_utils
 from sklearn import svm
 from tqdm import tqdm
@@ -54,11 +55,26 @@ def capture_faces(seconds=10, sampling_duration=0.1, debug=False):
         frame = frames[i]
         sample = align_faces(frame, [rect])[0]
         samples.append(sample)
+        data_aug = augment_data(sample)
+        samples.extend(data_aug)
+        cv2.imshow(data_aug[0])
+        cv2.waitKey(0)
         if debug:
             cv2.imshow("samples", sample)
             cv2.waitKey(0)
 
     return samples
+
+
+
+# for data augmentation — adjusts hue and saturation
+def augment_data(image):
+    hue1 = torchvision.transforms.functional.adjust_hue(image, .3)
+    hue2 = torchvision.transforms.functional.adjust_hue(image, -.3)
+    sat1 = torchvision.transforms.functional.adjust_saturation(image, 1.35)
+    sat2 = torchvision.transforms.functional.adjust_saturation(image, .65)
+    return [np.array(hue1), np.array(hue2), np.array(sat1), np.array(sat2)]
+
 
 
 def add_name_to_dictionary(name, num_classes):
@@ -96,10 +112,10 @@ def add_face(clf, num_classes):
 
 def load_model():
     # TODO: in the future we should look at model persistence to disk
-    # clf = svm.SVC(kernel="linear", C=1.6, probability=True)
-    network = BinaryFaceNetwork(device)
-    network.load_state_dict(torch.load("data/binary_face_classifier.pt", map_location=device))
-    clf = BinaryFaceClassifier(network, 0.5)
+    clf = svm.SVC(kernel="linear", C=1.6, probability=True)
+    # network = BinaryFaceNetwork(device)
+    # network.load_state_dict(torch.load("data/binary_face_classifier.pt", map_location=device))
+    # clf = BinaryFaceClassifier(network, 0.5)
     ds = FaceDataset("data/embeddings")
     data, labels = ds.all()
     num_classes = len(np.unique(labels))
