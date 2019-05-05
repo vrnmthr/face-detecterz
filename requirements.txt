@@ -35,3 +35,4 @@ torch==0.4.1
 tqdm==4.31.1
 traitlets==4.3.2
 urllib3==1.24.2
+torchvision
