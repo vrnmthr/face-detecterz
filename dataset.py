@@ -7,7 +7,7 @@ import numpy as np
 
 class FaceDataset:
 
-    def __init__(self, dir, n=None):
+    def __init__(self, dir, unknown_dir, n=None, num_unknown=100):
         """
         Creates new dataset
         :param dir: path to directory of saved embeddings
@@ -21,16 +21,15 @@ class FaceDataset:
         self.paths = self.paths[:n]
         np.random.shuffle(self.paths)
         self.ix_to_name = {}
-
-        # TODO: ideally we would shuffle this so that a different n points gets loaded every time
+        unknown_idx = len(self.paths)
         for ix, path in enumerate(self.paths):
             e = np.load(path)
             l = len(e)
-
             name = os.path.basename(path).replace(".npy", "")
             self.by_class[name] = e
             self.ix_to_name[ix] = name
-
+            print("name: " + name)
+            print("class: " + str(ix))
             # get random indices
             ixs = np.arange(l)
             np.random.shuffle(ixs)
@@ -41,6 +40,28 @@ class FaceDataset:
             self.labels[0].append(np.full(len(e[:int(0.8 * l)]), ix))
             self.labels[1].append(np.full(len(e[int(0.8 * l):int(0.9 * l)]), ix))
             self.labels[2].append(np.full(len(e[int(0.9 * l):]), ix))
+
+        self.unknown_paths =  glob.glob(os.path.join(unknown_dir, "*.npy"))
+        self.unknown_paths = self.unknown_paths[:num_unknown]
+        np.random.shuffle(self.unknown_paths)
+        for ix, path in enumerate(self.unknown_paths):
+            e = np.load(path)
+            l = len(e)
+
+            name = os.path.basename(path).replace(".npy", "")
+            self.by_class["unknown_class"] = e
+            self.ix_to_name[unknown_idx] = "unknown_class"
+
+            # get random indices
+            ixs = np.arange(l)
+            np.random.shuffle(ixs)
+            self.data[0].append(e[ixs[:int(0.8 * l)]])
+            self.data[1].append(e[ixs[int(0.8 * l):int(0.9 * l)]])
+            self.data[2].append(e[ixs[int(0.9 * l):]])
+
+            self.labels[0].append(np.full(len(e[:int(0.8 * l)]), unknown_idx))
+            self.labels[1].append(np.full(len(e[int(0.8 * l):int(0.9 * l)]), unknown_idx))
+            self.labels[2].append(np.full(len(e[int(0.9 * l):]), unknown_idx))
 
         # vvvv shitass code but it wasn't working otherwise idk??
         self.data = np.concatenate(self.data[0]), np.concatenate(self.data[1]), np.concatenate(self.data[2])
@@ -59,7 +80,7 @@ class FaceDataset:
         return self.data[2], self.labels[2]
 
     def all(self):
-        return np.concatenate(self.data), np.concatenate(self.labels)
+        return np.concatenate(self.data), np.concatenate(self.labels), self.ix_to_name
 
 
 if __name__ == '__main__':

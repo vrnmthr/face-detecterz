@@ -14,11 +14,13 @@ from dataset import FaceDataset
 from openface import load_openface, preprocess_batch
 from classifiers.binary_face_classifier import BinaryFaceClassifier, BinaryFaceNetwork
 
-CONF_THRESHOLD = 0.7
+CONF_THRESHOLD = 0.6
 CONF_TO_STORE = 30
 
+#TODO: jitter training data with gaussian noise and saturation.
+#TODO: SVM running on unknown class
 
-def capture_faces(seconds=10, sampling_duration=0.1, debug=False):
+def capture_faces(seconds=20, sampling_duration=0.1, debug=False):
     print("Capturing! about to capture {} seconds of video".format(seconds))
     start_time = time.time()
 
@@ -26,7 +28,7 @@ def capture_faces(seconds=10, sampling_duration=0.1, debug=False):
     face_locs = []
     # frames stores the actual images
     frames = []
-
+    ctr = 1
     while time.time() - start_time < seconds:
         ret, frame = video_capture.read()
         if ret:
@@ -34,7 +36,8 @@ def capture_faces(seconds=10, sampling_duration=0.1, debug=False):
             if len(faces) == 1:
                 frames.append(frame)
                 face_locs.append(faces[0])
-                print("Taken sample.")
+                print("Taken sample: " + str(ctr))
+                ctr+=1
 
             if len(faces) == 0:
                 print("No faces found.")
@@ -60,19 +63,11 @@ def capture_faces(seconds=10, sampling_duration=0.1, debug=False):
 
     return samples
 
-
-def add_name_to_dictionary(name, num_classes):
-    idx_to_name[num_classes] = name
-    # TODO: with later models, implement persistence as below
-    # f = open("data/idx_to_name.pkl", 'w')
-    # pickle.dump(idx_to_name, f)
-
-
 def retrain_classifier(clf):
-    ds = FaceDataset("data/embeddings")
-    data, labels = ds.all()
+    ds = FaceDataset("data/embeddings", "embeddings/known")
+    data, labels, idx_to_name = ds.all()
     clf = clf.fit(data, labels)
-    return clf
+    return clf, idx_to_name
 
 
 def add_face(clf, num_classes):
@@ -80,7 +75,7 @@ def add_face(clf, num_classes):
     while name in name_to_idx:
         name = input("We don't recognize you! Please enter your name:\n").strip().lower()
     samples = capture_faces()
-    while len(samples) < 75:
+    while len(samples) < 50:
         print("We could not capture sufficient samples. Please try again.\n")
         samples = capture_faces()
     embeddings = preprocess_batch(samples)
@@ -89,24 +84,22 @@ def add_face(clf, num_classes):
 
     # save name and embeddings
     np.save("data/embeddings/{}.npy".format(name), embeddings)
-    add_name_to_dictionary(name, num_classes)
-    clf = retrain_classifier(clf)
-    return clf
+    return retrain_classifier(clf)
 
 
 def load_model():
     # TODO: in the future we should look at model persistence to disk
-    # clf = svm.SVC(kernel="linear", C=1.6, probability=True)
-    network = BinaryFaceNetwork(device)
-    network.load_state_dict(torch.load("data/binary_face_classifier.pt", map_location=device))
-    clf = BinaryFaceClassifier(network, 0.5)
-    ds = FaceDataset("data/embeddings")
-    data, labels = ds.all()
+    clf = svm.SVC(kernel="linear", C=1.6, probability=True)
+    #network = BinaryFaceNetwork(device)
+    #network.load_state_dict(torch.load("data/binary_face_classifier.pt", map_location=device))
+    #clf = BinaryFaceClassifier(network, 0.5)
+    ds = FaceDataset("data/embeddings", "embeddings/known")
+    data, labels, idx_to_name = ds.all()
     num_classes = len(np.unique(labels))
     clf = clf.fit(data, labels)
     return clf, num_classes, ds.ix_to_name
 
-def main(clf, num_classes):
+def main(clf, num_classes, idx_to_name):
     # to store previous confidences to determine whether a face exists
     prev_conf = deque(maxlen=CONF_TO_STORE)
     print("Starting...")
@@ -131,12 +124,13 @@ def main(clf, num_classes):
 
                 # predict classes for all faces and label them if greater than threshold
                 probs = clf.predict_proba(embeddings)
+                unknown_class_prob = probs[0][-1]
                 print(probs)
                 predictions = np.argmax(probs, axis=1)
                 probs = np.max(probs, axis=1)
                 names = [idx_to_name[idx] for idx in predictions]
                 # replace all faces below confidence w unknown
-                names = [names[i] if probs[i] > CONF_THRESHOLD else "UNKNOWN" for i in range(len(probs))]
+                names = [names[i] if probs[i] > CONF_THRESHOLD else "unknown_class" for i in range(len(probs))]
                 print("Hi {}!".format(names))
                 for i in range(len(names)):
                     x, y, w, h = face_utils.rect_to_bb(rects[i])
@@ -145,9 +139,10 @@ def main(clf, num_classes):
                 # determine if we need to trigger retraining
                 # we only retrain if there is one person in the frame and they are unrecognized or there are 0 classes
                 if len(faces) == 1:
-                    prev_conf.append(probs[0])
-                    if np.mean(prev_conf) < CONF_THRESHOLD and len(prev_conf) == CONF_TO_STORE:
-                        clf = add_face(clf, num_classes)
+                    prev_conf.append(unknown_class_prob)
+                    if np.mean(prev_conf) > CONF_THRESHOLD and len(prev_conf) == CONF_TO_STORE:
+                        clf, idx_to_name = add_face(clf, num_classes)
+                        print(idx_to_name)
                         num_classes += 1
                         prev_conf.clear()
             else:
@@ -183,7 +178,7 @@ if __name__ == "__main__":
     # cannot function as a classifier if less than 2 classes
     assert num_classes >= 2
     name_to_idx = {idx_to_name[idx]: idx for idx in idx_to_name}
-    main(clf, num_classes)
+    main(clf, num_classes, idx_to_name)
 
     # When everything is done, release the capture
     video_capture.release()
