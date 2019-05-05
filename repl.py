@@ -38,7 +38,7 @@ def capture_faces(seconds=20, sampling_duration=0.1, debug=False):
             if len(faces) == 1:
                 frames.append(frame)
                 face_locs.append(faces[0])
-                print("Taken sample: " + str(ctr))
+                print("Took sample: " + str(ctr))
                 ctr+=1
 
             if len(faces) == 0:
@@ -61,9 +61,6 @@ def capture_faces(seconds=20, sampling_duration=0.1, debug=False):
         samples.append(sample)
         data_aug = augment_data(sample)
         samples.extend(data_aug)
-        for i in data_aug:
-            cv2.imshow("aug", i)
-            cv2.waitKey(0)
         if debug:
             cv2.imshow("samples", sample)
             cv2.waitKey(0)
