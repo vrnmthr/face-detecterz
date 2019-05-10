@@ -42,7 +42,7 @@ def make_graphs(dir, clfs):
     Plots accuracy vs. number of classes, training time vs. number of classes and eval time vs. number of classes
     """
     # TODO: we actually want time taken to "add" a class instead of "training time"; these two are not necessarily equal
-    num_classes = [100]
+    num_classes = [5, 10, 25, 100]
     result_shape = (len(clfs), len(num_classes))
     metrics = {
         "accs": np.empty(result_shape),
@@ -56,6 +56,10 @@ def make_graphs(dir, clfs):
             test_data, test_labels = dataset.test()
             train_data, train_labels = dataset.train()
             clf = clfs[name]
+            if name == "2-Layer Multi-Perceptron":
+                clf = Simple2MLP(numClasses=num_classes[i])
+            if name == "3-Layer Multi-Perceptron":
+                clf = Simple3MLP(numClasses=num_classes[i])
             clf, train_t = train(clf, train_data, train_labels)
             acc, test_t = test(clf, test_data, test_labels)
             metrics["accs"][k, i] = acc

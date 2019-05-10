@@ -74,7 +74,7 @@ def augment_data(image):
     hue2 = torchvision.transforms.functional.adjust_hue(img, -.05)
     sat1 = torchvision.transforms.functional.adjust_saturation(img, 1.35)
     sat2 = torchvision.transforms.functional.adjust_saturation(img, .65)
-    return [np.array(hue1), np.array(hue2), np.array(sat1), np.array(sat2)]
+    return [np.array(hue1), nworkingp.array(hue2), np.array(sat1), np.array(sat2)]
 
 def retrain_classifier(clf):
     ds = FaceDataset("data/embeddings", "embeddings/known")
