@@ -25,10 +25,10 @@ NUM_EPOCHS = 10
 
 class BinaryFaceClassifier:
 
-    def __init__(self, network, threshold):
+    def __init__(self, weights, device):
         self.centroids = []
-        self.network = network
-        self.threshold = threshold
+        self.network = BinaryFaceNetwork(device)
+        self.network.load_state_dict(torch.load(weights, map_location=device))
 
     def fit(self, data, labels):
         centroids = []
@@ -39,6 +39,10 @@ class BinaryFaceClassifier:
             centroids.append(centroid)
         self.centroids = np.asarray(centroids)
         return self
+
+    def predict(self, data):
+        probs = self.predict_proba(data)
+        return np.argmax(probs, axis=1)
 
     def predict_proba(self, data):
         """
@@ -174,7 +178,7 @@ def load_facepair_dataset(path, size=10000, ratio=0.3):
     # generate all embeddings that are from the same people
     n = int(size * ratio)
     people = np.random.randint(0, high=len(faces), size=n)
-    for p in people:
+    for p in tqdm(people):
         samples = faces[p]
         ixs = np.random.randint(0, high=len(samples), size=2)
         first, second = samples[ixs]
@@ -184,11 +188,11 @@ def load_facepair_dataset(path, size=10000, ratio=0.3):
 
     # generate all embeddings that are from different people
     n = int(size * (1 - ratio))
-    for _ in range(n):
+    for _ in tqdm(range(n), total=n):
         people = np.random.choice(len(faces), size=2, replace=False)
-        samples = faces[people]
-        first = samples[0][np.random.randint(0, high=len(samples[0]))]
-        second = samples[1][np.random.randint(0, high=len(samples[1]))]
+        sample_1, sample_2 = faces[people[0]], faces[people[1]]
+        first = sample_1[np.random.randint(0, high=len(sample_1))]
+        second = sample_2[np.random.randint(0, high=len(sample_2))]
         firsts.append(first)
         seconds.append(second)
         labels.append(0)
@@ -244,20 +248,17 @@ if __name__ == '__main__':
     model = BinaryFaceNetwork(device)
     print(model)
 
-    print("Building datasets")
-    firsts, seconds, labels = load_facepair_dataset(os.path.join(args.dir, "train"), size=10000000)
-    train_set = PairDataset(firsts, seconds, labels)
-
-    firsts, seconds, labels = load_facepair_dataset(os.path.join(args.dir, "dev"), size=1000000)
-    dev_set = PairDataset(firsts, seconds, labels)
-
-    firsts, seconds, labels = load_facepair_dataset(os.path.join(args.dir, "test"), size=1000000)
-    test_set = PairDataset(firsts, seconds, labels)
-
-    train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True)
-    dev_loader = DataLoader(dev_set, batch_size=BATCH_SIZE, shuffle=True)
-
     if args.restore == "":
+        print("Building training/dev datasets")
+        firsts, seconds, labels = load_facepair_dataset(os.path.join(args.dir, "train"), size=10000000)
+        train_set = PairDataset(firsts, seconds, labels)
+
+        firsts, seconds, labels = load_facepair_dataset(os.path.join(args.dir, "dev"), size=1000000)
+        dev_set = PairDataset(firsts, seconds, labels)
+
+        train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True)
+        dev_loader = DataLoader(dev_set, batch_size=BATCH_SIZE, shuffle=True)
+
         print("Training...")
         loss_history = model.train_with(train_loader, dev_loader, NUM_EPOCHS, LEARNING_RATE, args.save)
 
@@ -271,6 +272,9 @@ if __name__ == '__main__':
         model.load_state_dict(torch.load(args.restore))
         print("Model restored from disk.")
 
+    print("Building test datasets...")
+    firsts, seconds, labels = load_facepair_dataset("data/embeddings", size=100000)
+    test_set = PairDataset(firsts, seconds, labels)
     print("Testing...")
     confusion = model.test_with(test_set)
     print("Accuracy: {}%".format(100 * np.sum(np.diag(confusion))))

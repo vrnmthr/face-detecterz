@@ -74,7 +74,7 @@ def augment_data(image):
     hue2 = torchvision.transforms.functional.adjust_hue(img, -.05)
     sat1 = torchvision.transforms.functional.adjust_saturation(img, 1.35)
     sat2 = torchvision.transforms.functional.adjust_saturation(img, .65)
-    return [np.array(hue1), nworkingp.array(hue2), np.array(sat1), np.array(sat2)]
+    return [np.array(hue1), np.array(hue2), np.array(sat1), np.array(sat2)]
 
 def retrain_classifier(clf):
     ds = FaceDataset("data/embeddings", "embeddings/known")
@@ -161,8 +161,11 @@ def main(clf, num_classes, idx_to_name):
             else:
                 print("No faces detected.")
             cv2.imshow('Camera Feed', frame)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                return
+            if cv2.waitKey(1) & 0xFF == ord('r'):
+                clf, idx_to_name = add_face(clf, num_classes)
+                print(idx_to_name)
+                num_classes += 1
+                prev_conf.clear()
         else:
             print("ERROR: no frame captured")
 
@@ -188,6 +191,7 @@ if __name__ == "__main__":
     # np.save("data/embeddings/varun.npy", embeddings)
 
     clf, num_classes, idx_to_name = load_model()
+    print(idx_to_name)
     # cannot function as a classifier if less than 2 classes
     assert num_classes >= 2
     name_to_idx = {idx_to_name[idx]: idx for idx in idx_to_name}

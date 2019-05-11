@@ -7,7 +7,7 @@ import numpy as np
 
 class FaceDataset:
 
-    def __init__(self, dir, unknown_dir, n=None, num_unknown=100):
+    def __init__(self, dir, unknown_dir, n=None, num_unknown=250):
         """
         Creates new dataset
         :param dir: path to directory of saved embeddings
@@ -40,17 +40,19 @@ class FaceDataset:
             self.labels[0].append(np.full(len(e[:int(0.8 * l)]), ix))
             self.labels[1].append(np.full(len(e[int(0.8 * l):int(0.9 * l)]), ix))
             self.labels[2].append(np.full(len(e[int(0.9 * l):]), ix))
-
         self.unknown_paths =  glob.glob(os.path.join(unknown_dir, "*.npy"))
         self.unknown_paths = self.unknown_paths[:num_unknown]
         np.random.shuffle(self.unknown_paths)
+        print("DASDASDAS")
+        print(self.unknown_paths)
         for ix, path in enumerate(self.unknown_paths):
             e = np.load(path)
             l = len(e)
-
+            print("FDSFSDFSD")
             name = os.path.basename(path).replace(".npy", "")
             self.by_class["unknown_class"] = e
             self.ix_to_name[unknown_idx] = "unknown_class"
+            print(self.ix_to_name)
 
             # get random indices
             ixs = np.arange(l)

@@ -2,15 +2,16 @@ import time
 
 import numpy as np
 import plotly
+import torch
 from sklearn import svm
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.gaussian_process import GaussianProcessClassifier
-from sklearn.neighbors import RadiusNeighborsClassifier, KNeighborsClassifier, NearestCentroid
-from sklearn.preprocessing import scale
-from dataset import FaceDataset
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import RidgeClassifier, LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier, NearestCentroid
 from tqdm import tqdm
-from hypersphere import to_spherical
-from classifiers.mlp import Simple3MLP, Simple2MLP
+
+from classifiers.binary_face_classifier import BinaryFaceClassifier
+from dataset import FaceDataset
 
 
 def train(clf, data, labels):
@@ -55,7 +56,6 @@ def make_graphs(dir, clfs):
         "train_ts": np.empty(result_shape),
         "test_ts": np.empty(result_shape),
     }
-    datasets = [FaceDataset(dir, n=i) for i in num_classes]
 
     for k, name in tqdm(enumerate(clfs), total=len(clfs)):
         for i, dataset in enumerate(datasets):
@@ -74,24 +74,25 @@ def make_graphs(dir, clfs):
     for metric in metrics:
         plots = []
         for k, name in enumerate(clfs):
-            plot = plotly.graph_objs.Scatter(x=num_classes, y=metrics[metric][k], name=name)
+            result = metrics[metric][k]
+            result = np.mean(result, axis=1)
+            plot = plotly.graph_objs.Scatter(x=num_classes, y=result, name=name)
             plots.append(plot)
         plotly.offline.plot(plots, filename="{}.html".format(metric))
 
 
 if __name__ == '__main__':
-    path = "embeddings/known"
-    # TODO: all sorts of grid searches need to be done over these to actually determine what the right hyperparams are
-    # I've just sorta randomly initialized them for now with what I think would work best
+    path = "embeddings/train"
+    device = torch.device("cpu")
     clfs = {
-        "2-Layer Multi-Perceptron": Simple2MLP(),
-        "3-Layer Multi-Perceptron": Simple3MLP(),
         "linear svm": svm.SVC(kernel="linear", gamma="scale", C=1.6),
-        "knn": KNeighborsClassifier(weights="distance"),
-        # "gaussian process": GaussianProcessClassifier(),
+        "ridge": RidgeClassifier(alpha=2 ** -10, solver="lsqr"),
+        "logistic": LogisticRegression(solver="lbfgs", multi_class="auto", C=18, max_iter=1000),
+        "knn": KNeighborsClassifier(weights="distance", n_neighbors=8),
         "random forest": RandomForestClassifier(n_estimators=100),
-        # "radius neighbors": RadiusNeighborsClassifier(weights="distance"),
         "nearest centroid": NearestCentroid(),
-        # "gradient boost": GradientBoostingClassifier()
+        # "qda": QuadraticDiscriminantAnalysis(),
+        "lda": LinearDiscriminantAnalysis(),
+        "binary-nn": BinaryFaceClassifier("data/binary_face_detector.pt", device)
     }
     make_graphs(path, clfs)
