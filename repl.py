@@ -77,7 +77,7 @@ def augment_data(image):
     return [np.array(hue1), np.array(hue2), np.array(sat1), np.array(sat2)]
 
 def retrain_classifier(clf):
-    ds = FaceDataset("data/embeddings", "embeddings/known")
+    ds = FaceDataset("data/embeddings", "embeddings/train")
     data, labels, idx_to_name = ds.all()
     clf = clf.fit(data, labels)
     return clf, idx_to_name
@@ -106,7 +106,7 @@ def load_model():
     #network = BinaryFaceNetwork(device)
     #network.load_state_dict(torch.load("data/binary_face_classifier.pt", map_location=device))
     #clf = BinaryFaceClassifier(network, 0.5)
-    ds = FaceDataset("data/embeddings", "embeddings/known")
+    ds = FaceDataset("data/embeddings", "embeddings/train")
     data, labels, idx_to_name = ds.all()
     num_classes = len(np.unique(labels))
     clf = clf.fit(data, labels)

@@ -28,8 +28,6 @@ class FaceDataset:
             name = os.path.basename(path).replace(".npy", "")
             self.by_class[name] = e
             self.ix_to_name[ix] = name
-            print("name: " + name)
-            print("class: " + str(ix))
             # get random indices
             ixs = np.arange(l)
             np.random.shuffle(ixs)
@@ -43,16 +41,12 @@ class FaceDataset:
         self.unknown_paths =  glob.glob(os.path.join(unknown_dir, "*.npy"))
         self.unknown_paths = self.unknown_paths[:num_unknown]
         np.random.shuffle(self.unknown_paths)
-        print("DASDASDAS")
-        print(self.unknown_paths)
         for ix, path in enumerate(self.unknown_paths):
             e = np.load(path)
             l = len(e)
-            print("FDSFSDFSD")
             name = os.path.basename(path).replace(".npy", "")
             self.by_class["unknown_class"] = e
             self.ix_to_name[unknown_idx] = "unknown_class"
-            print(self.ix_to_name)
 
             # get random indices
             ixs = np.arange(l)
