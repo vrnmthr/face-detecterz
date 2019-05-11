@@ -42,6 +42,12 @@ def make_graphs(dir, clfs):
     Plots accuracy vs. number of classes, training time vs. number of classes and eval time vs. number of classes
     """
     # TODO: we actually want time taken to "add" a class instead of "training time"; these two are not necessarily equal
+    mlp2_out_acc = []
+    mlp2_out_train = []
+    mlp2_out_test = []
+    mlp3_out_acc = []
+    mlp3_out_train = []
+    mlp3_out_test = []
     num_classes = [5, 10, 25, 100]
     result_shape = (len(clfs), len(num_classes))
     metrics = {
@@ -65,7 +71,6 @@ def make_graphs(dir, clfs):
             metrics["accs"][k, i] = acc
             metrics["train_ts"][k, i] = train_t
             metrics["test_ts"][k, i] = test_t
-
     for metric in metrics:
         plots = []
         for k, name in enumerate(clfs):

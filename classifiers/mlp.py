@@ -15,12 +15,12 @@ class Simple3MLP(nn.Module):
         out3 = self.mlp2(out2)
         out4 = torch.relu(out3)
         return self.mlp3(out4)
-    def fit(self, data, labels):
+    def fit(self, data, labels, num_epochs=40):
         num_batches = len(labels) // self.batch_size
         optimizer = torch.optim.Adam(self.params, lr=0.001)
         lossFunc = nn.CrossEntropyLoss()
         print("=======")
-        for i in range(40):
+        for i in range(num_epochs):
             run_loss = 0
             acc = 0
             for i in range(num_batches):
@@ -51,12 +51,12 @@ class Simple2MLP(nn.Module):
         out = torch.relu(out)
         out = self.mlp2(out)
         return out
-    def fit(self, data, labels):
+    def fit(self, data, labels, num_epochs=20):
         num_batches = len(labels) // self.batch_size
         optimizer = torch.optim.Adam(self.params, lr=0.001)
         lossFunc = nn.CrossEntropyLoss()
         print("=======")
-        for i in range(20):
+        for i in range(num_epochs):
             run_loss = 0
             acc = 0
             for i in range(num_batches):
