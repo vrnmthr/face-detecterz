@@ -1,13 +1,14 @@
+import dlib
 import numpy as np
 import plotly
+import torch
+from scipy.spatial.distance import cdist
 from sklearn import svm
 from tqdm import tqdm
-import dlib
 
-from classifier import train, test
+from classifiers.binary_face_classifier import BinaryFaceClassifier
 from dataset import FaceDataset
-from sklearn.neighbors import KNeighborsClassifier
-from scipy.spatial.distance import cdist
+
 """
 Plot ROC curve by plotting different cutoff values
 """
@@ -41,15 +42,15 @@ def chinese_whispers():
 
 def euclidean_centroid_roc():
     print("Getting datasets")
-    known = FaceDataset("embeddings/known", n=853)
-    known_train, known_labels = known.train()
+    known = FaceDataset("embeddings/test")
+    known_train, known_labels = known.all()
     known_data = []
-    for i in range(853):
+    for i in range(1000):
         centroid = np.mean(known_train[known_labels == i], axis=0)
         known_data.append(centroid)
     known_test, _ = known.test()
 
-    unknown = FaceDataset("embeddings/unknown", n=500)
+    unknown = FaceDataset("embeddings/dev")
     unknown_data, _ = unknown.all()
 
     print("Calculating distances...")
@@ -70,6 +71,9 @@ def euclidean_centroid_roc():
         TPRs.append(TPR)
         FPRs.append(FPR)
 
+    np.save("euc_tpr.npy", TPRs)
+    np.save("euc_fpr.npy", FPRs)
+
     roc = plotly.graph_objs.Scatter(x=FPRs, y=TPRs, text=thresholds)
     layout = plotly.graph_objs.Layout(
         title='Euclidean Distance ROC curve',
@@ -81,28 +85,126 @@ def euclidean_centroid_roc():
     plotly.offline.plot(fig, filename="svm_roc.html")
 
 
-def svm_roc():
-    data = FaceDataset("embeddings/known", n=100)
-    train_data, train_labels = data.train()
+def svm_unknown_classes():
+    N_ITERS = 50
+    t = []
+    f = []
+    for _ in tqdm(range(N_ITERS), total=N_ITERS):
 
-    clf = svm.SVC(kernel="linear", C=1.6, probability=True)
-    clf, _ = train(clf, train_data, train_labels)
+        known = FaceDataset("embeddings/test", n=100)
+        known_train, known_labels = known.train()
+        known_test, _ = known.test()
 
-    unknown = FaceDataset("embeddings/unknown", n=100)
-    unknown_data, _ = unknown.train()
-    probs = clf.predict_proba(unknown_data)
-    probs_max = np.max(probs, axis=1)
+        unknown = FaceDataset("embeddings/dev", n=100)
+        unknown_data, _ = unknown.all()
 
-    thresholds = np.linspace(0, 1, 100)
-    false_positives = []
-    for t in thresholds:
-        false = np.mean(probs_max > t)
-        false_positives.append(false)
+        seed = FaceDataset("embeddings/train", n=100)
+        seed_train, seed_labels = seed.all()
 
-    true_positives = np.subtract(1, false_positives)
-    roc = plotly.graph_objs.Scatter(x=false_positives, y=true_positives)
-    plotly.offline.plot([roc], filename="svm_roc.html")
+        # assign our unknown class to be 0 and increment all the labels in known by 1
+        known_labels = known_labels + 1
+        seed_labels = np.zeros(len(seed_labels))
+
+        # train the SVM on the classes with the random seed
+        full_training = np.concatenate([known_train, seed_train])
+        full_labels = np.concatenate([known_labels, seed_labels])
+        clf = svm.SVC(kernel="linear", gamma="scale", C=1.6, probability=True)
+        clf.fit(full_training, full_labels)
+
+        # run SVM on the unknown set
+        unknown_probs = clf.predict_proba(unknown_data)
+        pred = np.argmax(unknown_probs, axis=1)
+        unknown_confs = np.max(unknown_probs, axis=1)
+        unknown_confs[pred == 0] = 0
+
+        # run SVM on known set
+        known_probs = clf.predict_proba(known_test)
+        pred = np.argmax(known_probs, axis=1)
+        known_confs = np.max(known_probs, axis=1)
+        known_confs[pred == 0] = 0
+
+        # TPR = rate of unknown faces correctly qualified as so
+        # FPR = rate of known faces being qualified as unknown faces
+        TPRs = []
+        FPRs = []
+        thresholds = np.linspace(0, 1, 1000)
+        for x in thresholds:
+            TPR = np.mean(unknown_confs < x)
+            FPR = np.mean(known_confs < x)
+            TPRs.append(TPR)
+            FPRs.append(FPR)
+
+        t.append(TPRs)
+        f.append(FPRs)
+
+    t = np.mean(t, axis=0)
+    f = np.mean(f, axis=0)
+    print(t.shape)
+    print(f.shape)
+    np.save("svm_tpr.npy", t)
+    np.save("svm_fpr.npy", f)
+
+
+def binary_neural_roc():
+    N_ITERS = 50
+    t = []
+    f = []
+    clf = BinaryFaceClassifier("data/binary_face_detector.pt", torch.device("cpu"))
+    for _ in tqdm(range(N_ITERS), total=N_ITERS):
+
+        known = FaceDataset("embeddings/test", n=100)
+        known_train, known_labels = known.train()
+        known_test, _ = known.test()
+
+        unknown = FaceDataset("embeddings/dev", n=100)
+        unknown_data, _ = unknown.all()
+
+        # train the classifier
+        clf.fit(known_train, known_labels)
+
+        # run on known set
+        unknown_probs = clf.predict_proba(unknown_data)
+        unknown_confs = np.max(unknown_probs, axis=1)
+
+        # run SVM on unknown set
+        known_probs = clf.predict_proba(known_test)
+        known_confs = np.max(known_probs, axis=1)
+
+        # TPR = rate of unknown faces correctly qualified as so
+        # FPR = rate of known faces being qualified as unknown faces
+        TPRs = []
+        FPRs = []
+        thresholds = np.linspace(0.3, 1, 1000)
+        for x in thresholds:
+            TPR = np.mean(unknown_confs < x)
+            FPR = np.mean(known_confs < x)
+            TPRs.append(TPR)
+            FPRs.append(FPR)
+
+        t.append(TPRs)
+        f.append(FPRs)
+
+    t = np.mean(t, axis=0)
+    f = np.mean(f, axis=0)
+    print(t.shape)
+    print(f.shape)
+    np.save("neural_tpr.npy", t)
+    np.save("neural_fpr.npy", f)
 
 
 if __name__ == '__main__':
-    chinese_whispers()
+    classes = ["neural", "svm", "euc"]
+    rocs = []
+    for alg in classes:
+        FPRs = np.load("{}_fpr.npy".format(alg))
+        TPRs = np.load("{}_tpr.npy".format(alg))
+        roc = plotly.graph_objs.Scatter(x=FPRs, y=TPRs, name=alg)
+        rocs.append(roc)
+
+    layout = plotly.graph_objs.Layout(
+        title='ROC curves',
+        xaxis=dict(title='False Positive Rate'),
+        yaxis=dict(title='True Positive Rate'),
+    )
+    fig = plotly.graph_objs.Figure(data=rocs, layout=layout)
+    plotly.offline.plot(fig, filename="rocs.html")
